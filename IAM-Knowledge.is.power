@@ -1,0 +1,458 @@
+Title: IAM (Identity & Access Management).
+Description: Put in some study time for a deeper understanding IAM
+Author: Rodrigo Aurelio Criscuolo
+MS. Author: RodrigoACriscuolo
+MS. Date 10/09/2026
+
+Abstract:
+   Identity and Access Management (IAM) is the method of identifying users, devices, applications, services, and other digital entities, then controlling what each entity may access and what actions it may perform. In simple terms, IAM answers four questions:
+   1 - Who or what is requesting access?
+   2 - Can the identity be verified?
+   3 - What resource may it access?
+   4 - What actions are allowed, under which conditions, and for how long?
+
+   So, IAM combines identity administration, authentication, authorization, access control, monitoring and auditing.
+   Microsoft summarizes the objective as ensuring that the right people, machines, and software access the right resources at the right time. Google gives expresses the same idea as controlling who can do what on which resources.
+Links:
+https://learn.microsoft.com/en-us/entra/fundamentals/identity-fundamental-concepts
+https://docs.cloud.google.com/iam/docs/overview
+
+Keywords:
+
+
+1. Introduction
+
+Nowadays companies no longer operate from one protected office network. Their users, applications, data, devices, cloud services, APIs, contractors, customers, and AI agents may be are distributed across many locations and platforms.
+Without IAM, organiztions commonly experience questions like:
+   * Excessive user privileges
+   * Shared accounts and passwords
+   * Former employees retaining access
+   * Poor visibility into who accessed sensitive data
+   * Uncontrolled service accounts and API keys, or those mistakenly believed to be under control.
+   * Difficult Onboarding and Offboarding
+   * Increased damage after a compromised account
+   * Weak evidence for audits and regulatory compliance
+
+The central question is therefore:
+   1 - How can an organization provide lefitimate access efficiently while reducing unathorized access and excessive privilege? IAM is one of the primary technical and organizational responses to this problem.
+   2 - But would that be enough?
+
+To help understanding and comprehension, here are the definitions from major technology providers.
+
+|Providers    | IAM Definition or interpretation                                   | Example of implementations                                                                                            |
+|             |                                                                    |                                                                                                                       |
+|AWS          | AWS Identity and Access Management Controls access to AWS Services | A developer may receive permission to read objects from on Amazon S3 bucket but not delete them.                      |
+              | and resources through identities, roles, and policies.             | Applications can assume roles and receive temporary credentials                                                       |
+              | Policies define which actions are allowed or denied.               | Source: https://www.datadoghq.com/blog/iam-least-privilege/ - https://www.wiz.io/academy/cloud-security/aws-iam-roles |
+|             |                                                                    |                                                                                                                       |
+|Cisco        | Cisco applies identity information to secure access accross users, | A firewall can restrict access to an AWS server to members of the Finance group in Microsoft Active Directory.        |
+|             | devices, applications, and networks. Cisco's security examples     | Cisco Duo can use MFA, device trust, and adaptive access policies.
+|             | combine identity sources, device posture, adaptive authentication  | Source: https://www.cisco.com/c/en/us/td/docs/security/secure-firewall/management-center/device-config/770/management-center-device-config-77/advanced-access-dac.html |
+|             | and policy-based access.                                           |         https://community.cisco.com/t5/security-knowledge-base/cisco-duo-identity-lab-v2-quickstart-dcloud-demo-guide/ta-p/5555134                                     |                 
+|             |                                                                    |                                                                                                                                                                        |
+|Google Cloud | IAM is a fine-grained authorization system controlling who can do  | A service account may be granted a role that allows an application to read a specific BigQuery dataset but not modify it. |
+|             | what on which resources. Google models access through principals,  | Source: https://docs.cloud.google.com/iam/docs/overview                                                               |
+|             | roles, permissions, resources, and policies.                       |         https://docs.cloud.google.com/iam/docs                                                                        |
+|             |                                                                    |                                                                                                                       |
+|IBM          | IBM treats IAM as a broad enterprise disipline covering human and  | IBM verify can manage workforce and customer identities, MFA, adaptice access, lifecycle governance, privileged identities, |
+|             | non-human identities, authentication, authorization, governance,   | and audit activities across hybrid environments.                                                                            |
+|             | lifecycle management, risk evaluation, and auditing.               | Source: https://www.ibm.com/products/verify                                                                                 |
+|             |                                                                    |         https://www.ibm.com/think/topics/iam-deployment-guide                                                               |
+|             |                                                                    |                                                                                                                             |
+|Microsoft    | Microsoft defines IAM as verifying identities and assigning the    | Microsoft Entra ID provide SSO and MFA for employees, contractors, Applications, devices, and cloud resources. Conditional  |
+|             | appropriate access to applications, files, data, and other resouces| access can require stronger authentication for risky sign-ins.                                                              |
+|             | It includes identity management, federation, provisioning,         | Sources: https://www.microsoft.com/en-us/security/business/security-101/what-is-identity-access-management-iam              |
+|             | authentication, authorization, access control, reporting, and      |          https://learn.microsoft.com/en-us/entra/fundamentals/identity-fundamental-concepts                                 |
+|             | monitoring.                                                        |                                                                                                                             |
+
+By comparative observation
+The providers are using different product terminology, but their fundamental model is similar:
+Identity + Authentication + Authorization + Resource + Policy + Audit
+
+The main difference is emphasis:
+   * AWS and Google Cloud emphasize cloud-resource permissions.
+   * Cisco emphasizes network access, device trust, MFA, and adaptive security.
+   * IBM emphasizes enterprise governance, hybrid environments, lifecycle management, and non-human identities.
+   * Microsoft emphasizes workforce identity, federation, endpoint identity, applications, and Zero Trust.
+
+3. Methodology
+   3.1 Research Design
+   3.2 Participants or Data Sources
+   3.3 Materials and Instruments
+   3.4 Procedure
+   3.5 Data Analysis
+   3.6 Ethical Considerations
+
+
+4. Core IAM concepts 
+
+4.1 Identity and Device
+Identity, in a digital sense, is a unique set of characteristics used to recognize and verify that an entity is who or what it claims to be. For a human, identity might be a username and password, a fingerprint, or a face scan. For a device, identity is a digital fingerprint—a unique identifier that distinguishes one specific piece of hardware from billions of others. It is not just a name; it is a verifiable claim of existence and ownership.
+In the world of technology, a device is any piece of hardware capable of connecting to a network or communicating with another system. This ranges from the obvious, like your laptop, smartphone, or tablet, to the invisible, such as a smart lightbulb, an industrial sensor in a factory, or a massive server in a data center. Essentially, if it has a network interface and can send or receive data, it is a device.
+
+4.1.2 Digital identity
+A digital identity represents an entity in a system, It may represent by:
+   * An Employee
+   * A customer
+   * A contractor
+   * A device
+   * A virtual machine
+   * A container
+   * An application
+   * An API
+   * A service account
+   * An IoT sensor
+   * An AI agent
+Noticed Microsoft distinguishes human identities, workload identities, device identities, and agent identities. This is important because IAM is no longer limited to human users.
+Source: https://learn.microsoft.com/en-us/entra/fundamentals/identity-fundamental-concepts
+
+4.2 Device Identity
+So, what is device identity?
+   Device identity is the digital identity assigned to a physical or virtual device so that systems can recognize, authenticate, manage, and authorize it.
+   A device identity normally has two parts:
+      A. Identifiers
+      Identifiers answer:
+      “Which device is this?”
+      Examples:
+         Device ID
+         Serial number
+         IMEI
+         MAC address
+         Asset tag
+         Cloud resource ID
+         Manufacturer and model
+         An identifier alone is not necessarily secure. For example, a MAC address can sometimes be copied or changed.
+
+      B. Credentials
+      Credentials answer:
+      “Can this device prove that it is the legitimate device?”
+      Examples:
+         X.509 device certificate
+         Private/public key pair
+         TPM-protected key
+         Secure token
+         Device password
+         Hardware-backed identity
+         A device identity becomes stronger when the device can prove possession of a secret private key that attackers cannot easily copy.
+
+4.3 Authentication
+   Authentication is the methed or process of confirming the identity by validating provided credentials.
+
+4.3.1 We can therefore understand that.
+Authentication verifies identities using, for example:
+   * Password
+   * Passkey
+   * Security key
+   * Mobile authenticator
+   * One-Time code
+   * Fingerprint
+   * Facial recognition
+   * Digital certificate
+   * Federated login
+   * Workload identity token
+Example practical: An user enters a credential and his password, and approves a sign-in through an authenticator app, (MFA).
+
+5. Authorization
+   Authorization determines what an authenticated identity is allowed to do or to access.
+Example practical:
+   * Chris may view payroll reports only.
+   * Bob may view and edit payroll records.
+   * The payroll application using a service-account may read employee data.
+   * A temporary auditor may view reports, logs for day, week, month or year.
+   * Nobody except security team may delete audit logs.
+
+      In simple terms
+         Authentication asks: "Who are you?"
+         Authorization asks: "What are you permitted to do?"
+
+6. Permissions
+   Basic, a permission is a specific action on a resource.
+   
+   Examples:
+      * Read an S3 object
+      * Start a virtual machine
+      * List files in a storage bucket
+      * Modify a database record
+      * Approve an invoice
+      * Create, Delete, Disabled a user
+      * Delete a cloud resource
+Google Cloud describes permissions as individual operations that are grouped into roles. Users and workloads normally receive roles rather than individual permissions one at a time.
+Source: https://docs.cloud.google.com/iam/docs/overview
+
+7. Roles
+   A role is a collection of permissions associated with a job function or operations purpose.
+   
+   For Example:
+      * Database reader
+      * Network administrator
+      * Human-resources manager
+      * Security auditor
+      * Application deployment service
+      * Customer-support agent
+Role-Based Access Control, or RBAC, assigns access according to job role instead of individually assigning every permission to every person.
+
+8. Policies
+A policy is a defined condition for action, adopted for this purpose, it sets forth access rules.
+A policy may specify:
+      * Who may access
+      * Which resource may be accessed
+      * Which action is permitted
+      * From which device or location
+      * During what time period
+      * Under which device or location
+      * Whether MFA is required
+      * Whether access is temporary
+
+For example:
+      In the finance department, there are individuals who can read information from the financial database using the application on their managed device during business hours, but only with MFA.
+
+9. Provisioning and deprovisioning
+      In IT processes, Provisioning and Deprovisioning are generally referred to as *Onboarding* and *Offboarding*, and this process varies according to each company's policies.
+      
+      * Provisioning (Onboarding): Creating an account and granting appropriate access.
+      * Deprovisioning (Offboarding): Removing and disabling access when it is no longer needed.
+
+      A mature IAM program automates the emplyee lifecycle:
+            > Join > Move > Leave
+      For example:
+            * A new hired employee receives his ID and access based on department or position.
+            * A promoted employee receives new role and loses obsolete permissions.
+            * A termination (or departing) employee is disabled across AD, applications access and cloud platforms.
+
+Note: IBM identifies lifecycle management, role catalogs, time-bound access, and periodic entitlement review as important operational practices.
+Source: https://www.ibm.com/think/topics/iam-deployment-guide
+
+10. Review
+10.1 Why IAM is important?
+10.1.1 Security
+      IAM prevents unauthorized users and compromised accounts from accessing sensitive resources. MFA reduces dependence on passwords only, while least privilege limits what an attacher can do if an account is compromised.
+      For example, if an analyst's password is compromised and their account is read-only, the attacker should not be able to automatically delete information, create administrator accounts, or escalate permissions.
+
+10.1.2 Least privilege and reduced damange
+      The principle of leat privilege means granting only the access required for a task.
+      Risk exposure <Proportional to> Number of privileges X Privilege sensitivity X Time available
+      Reducing unnecessary permissions, limiting privileged access, and using temporary credentials can reduce the potential impact of an incident.
+Note: AWS examples emphasize least-privilege policies, role-based access, policy testing, and analysis of unsued permissions.
+Source: https://www.datadoghq.com/blog/iam-least-privilege/
+
+10.1.3 Compliance and accountability
+      IAM supports evidence for security and regulatory requirements by recording:
+            * Who signed in
+            * Which resource was accessed
+            * What action was performed
+            * When it happened
+            * Which authetication method was used
+            * Whether access was approved
+            * Whether access was later revoked
+      This supports audits and investigations involving standards or regulations such as ISO 27001, SOC 2, PCI DSS, HIPAA, and GDPR.
+
+10.1.4 Operations efficiency
+      IAM can simplify access through:
+            * Single sign-on
+            * Automated provisioning
+            * Group-based access
+            * Self-service password reset
+            * Centralized policy management
+            * Automated offboarding
+            * Federation identity
+      Instead of maintaining separate accounts manually in every application, an organization can use a central identity provider and standardized integrations such as SAML, OAuth, OpenID Connect, and SCIM.
+
+10.1.5 Support for remote work and cloud computing
+      IAM enables secure access from offices, homes, mobile devices, cloud environments, and partner networks.
+      Microsoft notes that modern IAM must support employees, contractors, vendors, partners, personal devices, applications, and data across hybrid work environments.
+Source: https://www.microsoft.com/en-us/security/business/security-101/what-is-identity-access-management-iam
+
+10.1.6 Proctection on non-human identities
+      Applications and machines often have powerful credentials. Examples include:
+            * API Keys
+            * Service Accounts
+            * Certificates
+            * Container Identities
+            * CI/CD pipeline identities
+            * IoT device identities
+            * AI-agent identities
+      These identities require owners, limited permissions, expiration dates, rotation, monitoring, and deprovisioning.
+      IBM identifies unmanaged non-human identities as a growing source of access risk.
+Source: https://www.ibm.com/think/topics/iam-deployment-guide
+
+11. Relevant IAM considerations
+      11.1 Governance
+      Key Questions: Before selecting a product, define:
+            * Who owns each identity?
+            * Who approves access?
+            * What resources are sensitive?
+            * How long should access last?
+            * Who reviews access?
+            * What happens when an end-user changes his position?
+            * What evidence must be retained?
+      IAM is not only a software installation. It is a governance system connecting business processes with technical controls.
+
+      11.2 Leat privilege
+      Permissions should be limited by:
+            * Specific actions
+            * Specific resources
+            * Specific environments
+            * Specific time periods
+            * Specific network or device conditions
+      Avoid broad permissions such as: Allusers/ Everyone/ Allow any/ Resource any.
+      A better policy grants only the necessary action on the necessary resource.
+
+      11.3 Strong authentication
+      Use strong authentication for sensitive access:
+            * MFA for administrators
+            * Phishing-resistant passkeys or security keys
+            * Device health checks
+            * Risk-based authentication
+            * Passwordless authentication
+            * Short-lived credentials
+      MFA should be particularly important for administrator accounts, remote access, financial systems, production environments, and sensitive data.
+
+      11.4 Human and machine identities
+      Do not manage only employee accounts. Create an iventory of:
+            * Users
+            * Service Accounts
+            * APIs
+            * Applications
+            * Devices
+            * Containers
+            * Bots
+            * AI agents
+            * External partners
+      Every idenity should have an owner, purpose, access scope, and lifecycle.
+
+      11.5 RBAC and ABAC
+      RBAC grants access based on roles.
+      Example are Service Desk technicians. All Service Desk agents receive the Service Desk Technician role.
+      ABAC, or Attribute-Based Access Control, evaluates attributes such as:
+            * Department
+            * Job title
+            * Device Status
+            * Location
+            * Data classification
+            * Time
+            * Project
+            * Risk score
+      Example: 
+            A Data-base analyst may access a restricted dataset only when they belong to the approved project and use a managed device.
+      RBAC is generally simpler to operate, while ABAC can provide more precise and context-aware decisions.
+
+      11.6 Privileged Access Management
+      Administrative access should be separated from ordinary access.
+      Recommended controls include:
+            * Separate administrator accounts
+            * Just-in-time elevation
+            * Approval workflows
+            * Temporary credentials
+            * Session recording
+            * Command logging
+            * Emergency access procedures
+            * Strong authentication
+      Google cloud's Privileged Access Manage, for example, support temporary auditable access that can require justification or approval.
+Source: https://docs.cloud.google.com/iam/docs/overview
+
+      11.7 Federation and interoperability
+      IAM should integrate with existing systems through standards such as:
+            * SAML
+            * OAuth 2.0
+            * OpenID Connect
+            * SCIM
+            * LDAP
+            * X.509 certificates
+            * FIDO2 and WebAuthn
+      Interoperability is especially important in hybrid and multi-cloud environments.
+
+      11.8 Monitoring and detection
+      IAM logs should be analyzed for:
+            * Impossible travel
+            * Reapeated failed logins
+            * New administrator accounts
+            * Unusual privilege changes
+            * Access from unknow devices
+            * Dormant accounts becoming active
+            * Service accounts accessing unexpected resources
+            * Sudden mass downloads
+            * Policy changes outside approved procedures
+      IAM logs should be integrated with security monitoring and incident-response processes.
+
+      11.9 Usability
+      Security controls that are too difficult may encourage unsafe behavior, such as pasword reuse or shared accounts. A good IAM system balances security and usability through:
+            * SSO
+            * Passwordless authentication
+            * Self-service recovery
+            * Clear access-request workflows
+            * Automatic role assignment
+            * Helpful error messages
+
+      11.10 Availability and recovery
+      IAM is a critical dependency. If the identity provider becomes unavailable, users may be unable to access essential systems.
+      Orgranizations should plan for:
+            * Backup authentication methods
+            * Emergency administrator accounts
+            * Redundant identity services
+            * Recovery procedures
+            * Offline or break-glass access
+            * Protection of idenity-provider administrative accounts
+
+12. When should an organization use IAM?
+      An organization should use IAM from the beginning of any system that contains valuable information or performs meaningful operations. IAM becames especially necessary when:
+            * More than one person accesses a system
+            * The organization uses cloud services
+            * Contractors or partners need access
+            * Applications need to call other applications
+            * Sensitive or regulated data is processed
+            * Administrators manage production systems
+            * Users need access to multiple applications
+            * The organization has high employee turnover
+            * IoT devices or automated workload are deployed
+            * AI agents or bots can perform actions
+            * Access must be audited
+      A small organization may begin with a cloud identity provider, MFA, groups, SSO, and basic lifecycle automation.
+      A large enterprise may require IAM, identity governance, PAM, CIAM, directory services, federation, access analytics, and identity threat detection.
+
+13. Where IAM is applied in the real world
+
+|Sector or Environment   | IAM application                                                                      | Example|
+|                        |                                                                                      |        |
+|Banking                 | Customer authentication, transaction authorization, fraud detection, employee access | A customer can view accounts but must use stronger verification to add a new payment recipient.|
+|Healthcare              | Patient privacy, clinician access, emergency access, audit trails                    | A doctor can view the records of assigned patients. A billing employee cannot view clinical notes.|
+|Government              | Citizen identity, employee access, classified systems, digital services              | A citizen uses a verified identity to access tax or benefits services|
+|Education               | Student, Teacher, researcher, and Administrator access                               | Students can access course materials while researchers receive controlled access to datasets.|
+|Retail and e-commerce   | Customer accounts, payment systems, employee permissions                             | A warehouse employee can update inventory but cannot access payment-card data.|
+|Manufacturing           | Industrial control systems, engineering designs, suppliers, operational technology   | A machine operator can monitor equipment but cannot change safety-critical settings.|
+|Telecommunications      | Network administrators, subscriber portals, APIs, infrastructure                     | An application reads from a storage bucket without receiving permission to delete it.|
+|Cloud computing         | Users, roles, services accounts, policies, temporary credentials                     | An application reads from a storage bucket without receiving permission to delete it.|
+|DevOps and CI/CD        | Build pipelines, repositories, deployment systems, secrets                           | A deployment pipeline can deploy to testing but requires approval for production.|
+|IoT and Smart buildings | Sensors, controllers, gateways, and device identities                                | Only authorized controllers can send commands to building systems.|
+|Transportation          | Drivers, dispatchers, vehicles, maintenance systems                                  | A driver can access assigned routes, while maintenance staff access vehicle diagnostics.|
+|Research laboratories   | Researchers, Instruments, datasets, restricted projects                              | A researcher receives access only to the project data required for the experiment|
+|Artificial Intelligence | AI agents, tools, data sources, APIs, and delegated actions                          | An AI agent may summarize documents but cannot change payroll or delete records without explicit authorization.|
+
+Cisco's examples illustrate how IAM can connect user identity, group membership, device posture, and firewall policy. For example, restricting access to a server to members of a particular "security group".
+Source: https://www.cisco.com/c/en/us/td/docs/security/secure-firewall/management-center/device-config/770/management-center-device-config-77/advanced-access-dac.html
+
+
+
+14. Conclusion
+      
+      IAM is a fundational cybersecurity and information governance practice. It ensure that people, devices, applications, services and AI agents receive appropriate access to appropriate resources under controlled conditions.
+      AWS, Cisco, Google, IBM, Microsoft and Oracle implement IAM differently, but all address the same fundamental objective. "The right identity receives the right access to the right resource at the right time".
+      IAM's principles should be used wherever digital identities interact with valuable systems, data, devices, or services. Its importance increases with cloud adoption, remote work, regulatory obligations, automation, IoT, multi-cloud architecture, 
+and AI-based systems. An effective IAM program combines strong authentication, least-privilege authorization, lifecycle automation, governance, monitoring and continuous review.
+      It is worth remembering and reiterating that Identity and Access Management (IAM) serves as a fundamental pillar of modern cybersecurity and a primary perimeter within *Zero Trust* architecture. Although information security is a shared 
+responsibility across the organization, the roles are clearly distinct: broader cybersecurity and governance teams establish security policies, frameworks, and compliance guidelines, while the specialized IAM team is fully responsible for the 
+engineering, management, and day-to-day administration of the identity lifecycle and access control structures.
+
+References
+https://learn.microsoft.com/en-us/entra/fundamentals/identity-fundamental-concepts
+https://learn.microsoft.com/en-us/entra/id-governance/identity-governance-overview
+https://docs.cloud.google.com/iam/docs/overview
+https://docs.cloud.google.com/iam/docs/job-functions/roles-for-job-functions
+https://cloud.google.com/blog/products/identity-security/achieving-identity-and-access-governance-on-google-cloud/
+https://docs.cloud.google.com/resource-manager/docs/access-control-org
+https://aws.amazon.com/compliance/shared-responsibility-model/
+https://www.datadoghq.com/blog/iam-least-privilege/
+https://builder.aws.com/content/3JKo4uumyXQhVMfkOObZdNFQUpO/mastering-aws-security-the-shared-responsibility-model-and-iam-best-practices
+https://medium.com/@cyberwithatharva/iam-roles-vs-iam-policies-understanding-access-control-in-aws-adc57e41dce0
+https://www.oracle.com/sa/security/identity-management/what-is-iam/
+https://www.oracle.com/ca-en/security/identity-management/what-is-iam/
+https://pathlock.com/learn/understanding-different-oracle-iam-solutions-and-their-capabilities/
