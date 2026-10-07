@@ -1,0 +1,62 @@
+Title: The Technical Evolution of Virtualization
+Description: From Mainframe Origins to Cloud Native Architectures
+Author: Rodrigo Aurelio Criscuolo
+MS. Author: RodrigoACriscuolo
+MS. Date 10/07/2026
+MS. Topic: These are the foundational references for virtualization history.
+
+Abstract
+
+Did you know that virtualization is widely regarded as a modern computing innovation due to itis central role in cloud computing. DevOps, virtual desktop infrastructure (VDI), and container orchestration.
+However, its origins trace back to the 1960s with IBM's development of CP-40 and CP-67. This paper presents a comprehensive technical analysis of virtualization's evolution, examining its architectural foundations, x86 virtualization challenges, hypervisor development, cloud-scale virtualization, containerization, and identity driven virtualization in Zero Trust environments.
+This research integrates historical documentation, academic research, and industry sources to provides a multi-perspective understanding of virtualization's enduring relevance.
+
+Introduction
+Virtualization enables multiple isolated computing environments to run concurrently on shared hardware. Although often perceived as modern, virtualization originated in mainframe systems more than six decades ago. Its evolution reflects major shifts in computing paradigms, including hardware abstraction, multi-tenancy, cloud computing, and identity driven security. This article aims to explore and understand the technical evolution of virtualization, from mainframes to cloud-native architectures.
+
+Mainframe Virtualization (1960s - 1970s)
+A. CP-40 and CP-67
+IBM's CP-40 introduced the first virtual machine monitor (VMM), enabling time sharing and hardware abstraction. CP-67 these mechanisms, providing stable multi-tenant environments. Both systems relied on trap-and-emulate techniques to intercept privileged instructions.
+
+B. VM/370
+VM/370 formalized full virtualization by providing isolated address spaces, virtual I/O subsystems, and independent guest operating systems. Creasy's historical account confirms VM/370 as the first widely deployed virtual machine system.
+
+C. Technical Contributions
+
+Time-sharing schedulers
+Virtual memory segmentation
+Privileged memory segmentation
+Multi-tenant isolation
+Academic Expansion (1970s - 1980s)
+Virtualization became a research tool for operating system prototyping, security isolation, and multi-user computing. Goldberg's survey established the theoretical foundations of virtualization, including the Popek & Goldberg criteria for virtualizable architectures.
+
+x86 Virtualization Challenges (1990s)
+A. non-Virtualizable x86 Instructions
+x86 architecture lacked proper trapping behavior for certain privileged instructions, violating virtualization requirements.
+
+B. VMware's Breakthrough
+VMware introduced dynamic binary translation, shadow page tables, and ring deprivileging, enabling full virtualization on commodity hardware.
+
+C. Differing Perspectives
+Some researchers argued binary translation was inefficient, while others viewed it as the only viable solution before hardware assisted virtualization.
+
+Hypervisor Era (2000s)
+Cloud Virtualization (2010s)
+Containerization and Cloud Native Virtualization
+Modern Virtualization (2020s)
+Why Virtualization Appears Modern Today
+Conclusion
+References
+[1] R. Creasy, “The Origin of the VM/370 Time-Sharing System,” IBM Journal of Research and Development, 1981. Available: https://www.ibm.com/docs/en/ibm-journal-research-development (ibm.com )
+[2] R. Goldberg, “Survey of Virtual Machine Research,” IEEE Computer, 1974. Available: https://ieeexplore.ieee.org/document/5388471
+[3] IBM Corporation, “IBM Systems Journal Archives.” Available: https://www.ibm.com/ibm/history
+[4] M. Rosenblum and T. Garfinkel, “Virtual Machine Monitors: Current Technology and Future Trends,” IEEE Computer, 2005. Available: https://ieeexplore.ieee.org/document/1430631
+[5] VMware, “Technical Papers and Architecture Guides.” Available: https://www.vmware.com/techpapers.html (vmware.com )
+[6] Microsoft, “Hyper V Virtualization Documentation.” Available: https://learn.microsoft.com/en-us/windows-server/virtualization/hyper-v (learn.microsoft.com )
+[7] Xen Project, “Xen Hypervisor Documentation.” Available: https://xenproject.org/documentation/ (xenproject.org )
+[8] Amazon Web Services, “AWS Nitro System.” Available: https://aws.amazon.com/nitro/
+[9] Docker, “Docker Documentation.” Available: https://docs.docker.com/
+[10] Kubernetes, “Kubernetes Documentation.” Available: https://kubernetes.io/docs/
+[11] D. Merkel, “Docker: Lightweight Linux Containers for Consistent Development and Deployment,” Linux Journal, 2014. Available: https://www.linuxjournal.com/content/docker-lightweight-linux-containers-consistent-development-and-deployment (linuxjournal.com )
+[12] Microsoft, “Microsoft Entra ID Documentation.” Available: https://learn.microsoft.com/en-us/entra/
+[13] NIST, “Zero Trust Architecture (SP 800 207).” Available: https://csrc.nist.gov/publications/detail/sp/800-207/final (csrc.nist.gov)
