@@ -41,3 +41,29 @@ Sources:
 https://learn.microsoft.com/en-us/entra/identity/devices/concept-hybrid-join
 https://learn.microsoft.com/en-us/entra/identity/devices/concept-directory-join
 
+Important
+The most common source of trouble is choosing a join method that doesn't fit the device, or assuming that a device's Entra record proves it is Intune managed.
+
+For each device class
+  * For New Corporate device, prefer Microsoft Entra Join + Intune automatic enrollment, ideally through Windows Autopilot for repeatable provisioning.
+    Microsoft describes Entra Join as easier to configure than hybrid join for new deployments. 
+    Source: https://learn.microsoft.com/en-us/intune/device-enrollment/enroll-devices
+
+  * For Existing AD-domain device: Use Hybrid Join + Intune enrollment, usually triggered by Group Policy. This is appropriate where you still need AD domain services, Group Policy, or apps that rely on AD machine authentication. hybrid Joined Devices periodically needs line of sight to domain controles.
+    Source: https://learn.microsoft.com/en-us/entra/identity/devices/concept-hybrid-join
+            https://learn.microsoft.com/en-us/intune/device-enrollment/enroll-devices
+
+  * For Personal/ BYOD device: Choose deliberately between app-level protection and or full device management.
+    Entra registration alone is not Intune enrollment. If you enroll a personal device in Intune, you're giving the organization device management capabilities, ensure that matches your BYOD policy and user expectations.
+    Source: https://learn.microsoft.com/en-us/intune/device-enrollment/enroll-devices
+
+Entra registration would not be used as workaround to manage a fleet of corporate, domain-joined devices, and we would not use the hybrid join GPO method for registered/ BYOD devices. The supported GPO auto-enrollmente scenario is for eligible hydrid joined devices.
+Source: https://learn.microsoft.com/en-us/intune/device-enrollment/enroll-devices
+        https://learn.microsoft.com/en-us/answers/questions/2203129/issues-with-device-enrollment-in-intune
+
+Questions:
+But is this works to all companies?
+What is the best choice for meeting security policies and best practices?
+What is the best option for asset and information management?
+Does it require a dedicated team?
+
