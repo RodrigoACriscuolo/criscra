@@ -1,10 +1,18 @@
-Microsoft Intune
+Title: Review of Intune knowledge
+Description: From Mainframe Origins to Cloud Native Architectures
+Author: Rodrigo Aurelio Criscuolo
+MS. Author: RodrigoACriscuolo
+MS. Date 10/07/2026
+MS. Topic: Device Identity and registration
+
+Microsoft Intune x Entra ID
 
 A useful distinction first.
 Microsoft Intune: enrollment connects the device to Intune for management.
 Microsoft Entra registration: join creates a cloud identity for the device.
 Note, its importante, a device can have an Entra identity withou being managed by Intune. Intune enrollmente install an MDM certificate so Intune can apply policies and manage it.
 Source: https://learn.microsoft.com/en-us/intune/device-enrollment/guide
+
 
 There are three identity states
 
