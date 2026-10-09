@@ -1,26 +1,51 @@
-Title: Review of Intune knowledge
-Description: From Mainframe Origins to Cloud Native Architectures
 Author: Rodrigo Aurelio Criscuolo
-MS. Author: RodrigoACriscuolo
-MS. Date 10/07/2026
-MS. Topic: Device Identity and registration
+Date: 10/07/2026
+Topic: Device Identity, Registration, and Management
+Scope: Microsoft Intune + Microsoft Entra ID
+Purpose: Provide a complete, structured, cloud‑ready knowledge base for device identity, enrollment, management, troubleshooting, and architecture.
 
-Microsoft Intune x Entra ID
+1. Identity vs. Management (Entra ID vs. Intune)
+  - Core concept
+  Understanding the difference between device identity (Microsoft Entra ID) and device management (Microsoft Intune) is the foundation of all modern endpoint architecture.
 
-A useful distinction first.
-Microsoft Intune: enrollment connects the device to Intune for management.
-Microsoft Entra registration: join creates a cloud identity for the device.
-Note, its importante, a device can have an Entra identity withou being managed by Intune. Intune enrollmente install an MDM certificate so Intune can apply policies and manage it.
-Source: https://learn.microsoft.com/en-us/intune/device-enrollment/guide
+    A useful distinction first.
+  Microsoft Intune: enrollment connects the device to Intune for management.
+  Microsoft Entra registration: join creates a cloud identity for the device.
+  Note, its importante, a device can have an Entra identity withou being managed by Intune. Intune enrollmente install an MDM certificate so Intune can apply policies and manage it.
+  Source: https://learn.microsoft.com/en-us/intune/device-enrollment/guide
 
+1.1 Device Identity (Microsoft Entra ID)
+  Entra ID provides cloud identity for devices through:
+    Registration (BYOD)
+    Join (Corporate)
+    Hybrid Join (AD + Entra)
+  Identity enables:
+    Conditional Access
+    SSO
+    Device-based authentication
+    Compliance evaluation
 
-There are three identity states
+But identity alone does not manage the device.
 
-Personal/BYOD device       → Entra registered ──optional──→ Intune-managed
-New corporate cloud device → Entra joined ───────usually───→ Intune-managed
-Existing AD-domain device  → Hybrid joined ──────often─────→ Intune-managed
+1.2 Device Management (Microsoft Intune)
+  Intune provides:
+    Configuration profiles
+    Compliance policies
+    App deployment
+    Security baselines
+    Remote actions (wipe, retire, lock)
 
-How the three identity types differ
+Management requires MDM enrollment, which installs an MDM certificate.
+A device can have an Entra ID identity without being Intune-managed. This is the most common misunderstanding.
+
+2. Device Identity Types
+  There are three identity states in MS Entra ID:
+
+Personal/BYOD device       → Entra registered ── (optional) ──→ Intune-managed
+New corporate cloud device → Entra joined ─────── (usually) ──→ Intune-managed
+Existing AD-domain device  → Hybrid joined ────── (often) ────→ Intune-managed
+
+2.1 Comparison. How the three identity types differ
 
 Identity type       | What the device is connected to                | Typical example                            | How the user signs into Windows             | Usual management
                     |                                                |                                            |                                             |
@@ -40,6 +65,92 @@ Hybrid joined is both, keeps the on-premises domain relationship as well as the 
 Sources: 
 https://learn.microsoft.com/en-us/entra/identity/devices/concept-hybrid-join
 https://learn.microsoft.com/en-us/entra/identity/devices/concept-directory-join
+
+3. Identity Types
+
+  3.1 Entra Registered (BYOD)
+    Personal device
+    Work account added
+    Cloud identity created
+    Device remains personal
+  Management optional
+  Best for App Protection (MAM)
+
+  3.2 Entra Joined (Cloud-first Corporate)
+    Corporate-owned
+    Cloud-native
+    Autopilot recommended
+    Intune automatic enrollment
+    No dependency on AD
+
+  3.3 Hybrid Joined (AD + Entra)
+    Domain-joined
+    Syncs to Entra
+    Requires DC connectivity
+    Supports legacy apps
+    Supports co-management
+
+4. Flow Decision (Mermaid)
+    A [Start: What type of device is it?] --> B{Is it a device corporated?}
+
+    B -->|Yes| C{Is it new or existing?}
+    B -->|No (Personal/BYOD)| D[Entra Registered]
+
+    C -->|New device| E[Entra Joined]
+    C -->|Existing AD device| F[Hybrid Joined]
+
+    D --> G{Management Needed?}
+    G -->|App-level only| H[Use App Protection (MAM)]
+    G -->|Full device control| I[Intune Enrollment (BYOD Policy Required)]
+
+    E --> J[Intune Automatic Enrollment (Autopilot Recommended)]
+
+    F --> K[Intune Enrollment via GPO]
+    F --> L[Co-management with ConfigMgr]
+
+    H --> M[End]
+
+5. Recommended Join + Enrollment Patterns
+
+  5.1 New Corporate Devices
+    Entra Join + Intune automatic enrollment
+    Prefer Windows Autopilot
+    Cloud-first, simplest configuration
+    Reference: https://learn.microsoft.com/en-us/intune/device-enrollment/enroll-devices
+
+  5.2 Existing AD Domain Devices
+    Hybrid Join + Intune enrollment via GPO
+    Required for AD-based apps, GPO, machine auth
+    Needs periodic DC connectivity
+    Reference: https://learn.microsoft.com/en-us/entra/identity/devices/concept-hybrid-join
+
+  5.3 Personal / BYOD Devices
+    Choose between App Protection (MAM) or full MDM
+    Entra registration ≠ Intune enrollment
+    Full MDM gives the org device control → must match BYOD policy
+    Reference: https://learn.microsoft.com/en-us/intune/device-enrollment/enroll-devices
+
+6. Common Errors & Solutions
+  6.1 Error: Assuming Entra ID = Intune Management
+    Fix: Check MDM = Intune in admin center.
+  ... in progress...
+
+  6.2 Error: Hybrid Join GPO applied to BYOD
+    Fix: Use MAM or manual enrollment.
+  ... in progress...
+
+  6.3 Error: Hybrid Join fails
+    Fix: Ensure DC connectivity + SCP + AAD Connect.
+  ... in progress...
+
+  6.4 Error: Autopilot device not joining Entra
+    Fix: Check profile assignment + MDM scope + hash upload.
+  ... in progress...
+
+  6.5 Error: Corporate devices show as Registered
+    Fix: Re-provision via Autopilot or Entra Join.
+  ... in progress...
+
 
 Important
 The most common source of trouble is choosing a join method that doesn't fit the device, or assuming that a device's Entra record proves it is Intune managed.
@@ -62,12 +173,25 @@ Source: https://learn.microsoft.com/en-us/intune/device-enrollment/enroll-device
         https://learn.microsoft.com/en-us/answers/questions/2203129/issues-with-device-enrollment-in-intune
 
 
+8. Microsoft'S Links References
+Entra device identity: https://learn.microsoft.com/en-us/entra/identity/devices/device-identity
+Directory join types : https://learn.microsoft.com/en-us/entra/identity/devices/concept-directory-join
+Hybrid Join          : https://learn.microsoft.com/en-us/entra/identity/devices/concept-hybrid-join
+Intune enrollment    : https://learn.microsoft.com/en-us/intune/device-enrollment/device-enrollment
+Autopilot            : https://learn.microsoft.com/en-us/windows/deployment/windows-autopilot/windows-autopilot
+App Protection       : https://learn.microsoft.com/en-us/mem/intune/apps/app-protection-policy
 
 
-Questions:
+9. Keys
+  Identity ≠ Management
+  Choose join method based on ownership + environment
+  Autopilot is the gold standard for new devices
+  BYOD requires careful policy alignment
+  Hybrid Join supports legacy dependencies
+  Entra ID record does not mean Intune-managed
+
+Note Questions:
 But is this works to all companies?
 What is the best choice for meeting security policies and best practices?
 What is the best option for asset and information management?
 Does it require a dedicated team?
-
-“Full rewrite: Intune Knowledge Base v1.0”
