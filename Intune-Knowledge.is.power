@@ -1,0 +1,35 @@
+Microsoft Intune
+
+A useful distinction first.
+Microsoft Intune: enrollment connects the device to Intune for management.
+Microsoft Entra registration: join creates a cloud identity for the device.
+Note, its importante, a device can have an Entra identity withou being managed by Intune. Intune enrollmente install an MDM certificate so Intune can apply policies and manage it.
+Source: https://learn.microsoft.com/en-us/intune/device-enrollment/guide
+
+There are three identity states
+
+Personal/BYOD device       → Entra registered ──optional──→ Intune-managed
+New corporate cloud device → Entra joined ───────usually───→ Intune-managed
+Existing AD-domain device  → Hybrid joined ──────often─────→ Intune-managed
+
+How the three identity types differ
+
+Identity type       | What the device is connected to                | Typical example                            | How the user signs into Windows             | Usual management
+                    |                                                |                                            |                                             |
+MS Entra Registered | Entra ID: The device remains independently     | Employee adds a work account to a personal | Personal account: work account is added for | Often app Protection or limited management,
+                    | owned or configured                            | Windows PC                                 | organizational access                       | can also enroll in Intune
+                    |                                                |                                            |                                             |
+MS Entra Joined     | Entra ID only: no on-premises AD domain join   | New company laptop set up from home        | Work or school account                      | Intune is a common choice
+                    |                                                |                                            |                                             |
+MS Entra Hybrid     | Both on-premises Active Directory and Entra ID | Existing domain-joined company PC          | On-premises domain account                  | Group Policy, Configuration Manager, Intune, 
+                    |                                                |                                            |                                             | or co-management
+
+Note: 
+Registered is generally the BYOD/ work-account case:adding a work account gives the device a cloud identity, but does not by itself turn it into an Entra-Joined corporate PC.
+Joined is a cloud-first corporate device
+Hybrid joined is both, keeps the on-premises domain relationship as well as the cloud identity. Hybrid devices may need periodic connectivity to on-primises domain controllers.
+
+Sources: 
+https://learn.microsoft.com/en-us/entra/identity/devices/concept-hybrid-join
+https://learn.microsoft.com/en-us/entra/identity/devices/concept-directory-join
+
