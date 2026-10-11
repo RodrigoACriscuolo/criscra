@@ -1,13 +1,13 @@
 # Hi there, I'm Rodrigo Criscuolo
 
-### **Senior Infrastructure & Cloud Engineer**
+### **Senior Infrastructure & CloudOps (Cloud Operations) Engineer**
 > *Architecting resilient hybrid environments, automating enterprise cloud infrastructure, and integrating AI-driven operations.*
 
 ---
 
 ### **🚀 About Me**
 
-- ⚡ **Core Focus:** Cloud Architecture, Hybrid Infrastructure Management, IAM (Identity & Access Management) and Enterprise System Stability.
+- ⚡ **Core Focus:** Cloud & Hybrid Infrastructure Management, Cloud Architecture, IAM (Identity & Access Management), Azure & M365 Administration, Technical Troubleshooting Specialist and Enterprise System Stability.
 - 🎯 **Current Specialization:** AI integration in hybrid infrastructure operations and future-proofing enterprise IT workloads.
 - 📍 **Location:** Toronto, ON | Open to Hybrid & Remote Opportunities
 
