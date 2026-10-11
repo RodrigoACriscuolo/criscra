@@ -1,3 +1,11 @@
-function calculateTax(income, taxRate) {
-	return income * taxRate;
-}
+#Script que lista todos os recursos em uma assinatura do Azure usando Azure PowerShell.Aqui está um script em PowerShell que lista todos os recursos em uma assinatura do Azure usando o módulo
+#Azure PowerShell:```powershell
+# Certifique-se de que você tenha o módulo Azure PowerShell instalado
+PowerShell commands, list all commands to connect to Azure, authenticate, and retrieve all resources in a subscription.
+```powershell
+connect-azaccount #connect to your Azure account
+Get-AzSubscription #list all subscriptions available to your account
+# Select the subscription you want to work with
+Select-AzSubscription -SubscriptionId "your-subscription-id" #replace with your subscription ID
+# Retrieve all resources in the selected subscription
+Get-AzResource | Select-Object Name, ResourceType, ResourceGroupName, Location | Format-Table -AutoSize
