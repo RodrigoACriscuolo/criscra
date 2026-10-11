@@ -1,0 +1,3 @@
+function calculateTax(income, taxRate) {
+	return income * taxRate;
+}
