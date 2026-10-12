@@ -1,6 +1,45 @@
 #Script que lista todos os recursos em uma assinatura do Azure usando Azure PowerShell.Aqui está um script em PowerShell que lista todos os recursos em uma assinatura do Azure usando o módulo
 #Azure PowerShell:```powershell
-# Certifique-se de que você tenha o módulo Azure PowerShell instalado
+Reference: https://learn.microsoft.com/en-us/powershell/azure/new-azureps-module-az?view=azps-10.12.0
+Prerequisites:
+   # - Ensure you have the Azure PowerShell module installed
+   # - To open PowerShell, you can use the following command: Get-ExecutionPolicy -List
+   # - How to check if the Azure PowerShell module is installed and how to install it if it is not
+   # - Check the PowerShell excecution policy to ensure that scripts can be run. You can check the execution policy by running the following command:    # - If the execution policy is set to "Restricted", you will need to change it to "RemoteSigned" or "Unrestricted" to allow scripts to run. You can change the execution policy by running the following command: Get-ExecutionPolicy -List 
+   # - After changing the execution policy, you can re-run the command to check if the policy has been set correctly. You can also check if the Azure PowerShell module is installed by running the following command: Set-ExecutionPolicy -ExecutionPolicy RemoteSigned -Scope CurrentUser 
+   # - If the module is not installed, you can install it by running the following command: 
+
+Get-ExecutionPolicy -List
+Get-Module -Name AzureRM -ListAvailable
+
+Example:
+        Scope ExecutionPolicy
+        ----- ---------------
+MachinePolicy       Undefined
+   UserPolicy       Undefined
+      Process       Undefined
+  CurrentUser      Restricted
+ LocalMachine      Restricted
+...
+
+Set-ExecutionPolicy -ExecutionPolicy RemoteSigned -Scope CurrentUser
+re-run the command to check if the Policy has been set correctly:
+Get-ExecutionPolicy -List
+
+Example:
+        Scope ExecutionPolicy
+        ----- ---------------
+MachinePolicy       Undefined
+   UserPolicy       Undefined
+      Process       Undefined
+  CurrentUser    RemoteSigned
+ LocalMachine      Restricted
+...
+
+Install-Module -Name Az -Repository PSGallery -Force
+
+
+
 PowerShell commands, list all commands to connect to Azure, authenticate, and retrieve all resources in a subscription.
 ```powershell
 connect-azaccount #connect to your Azure account
@@ -9,3 +48,11 @@ Get-AzSubscription #list all subscriptions available to your account
 Select-AzSubscription -SubscriptionId "your-subscription-id" #replace with your subscription ID
 # Retrieve all resources in the selected subscription
 Get-AzResource | Select-Object Name, ResourceType, ResourceGroupName, Location | Format-Table -AutoSize
+connect azure as a service principal using the following command:
+```powershell
+$tenantId = "your-tenant-id" #replace with your tenant ID
+$clientId = "your-client-id" #replace with your client ID
+$clientSecret = "your-client-secret" #replace with your client secret
+$securePassword = ConvertTo-SecureString $clientSecret -AsPlainText -Force
+$credential = New-Object System.Management.Automation.PSCredential($clientId, $securePassword)
+Connect-AzAccount -ServicePrincipal 
