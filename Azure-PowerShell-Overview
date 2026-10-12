@@ -1,0 +1,241 @@
+Title: Azure PowerShell Overview
+Description: A practical overview of how to install, configure, and use Azure PowerShell on Windows to connect to Microsoft Entra ID-backed Azure resources and automate management tasks.
+Author: Rodrigo Aurelio Criscuolo
+MS. Date: 10/12/2026
+MS. Topic:
+- Install and update the Azure PowerShell module
+- Configure Windows PowerShell execution policy for scripts
+- Authenticate to Azure and verify access
+- Use Azure Cloud Shell for browser-based administration
+
+# Azure PowerShell Overview
+
+Azure PowerShell is the Microsoft-supported PowerShell experience for managing Azure resources. The current module set is the `Az` module, which replaces legacy `AzureRM` and `Azure` modules. In modern Azure automation, `Az` is the recommended choice for scripting, provisioning, and operational tasks.
+
+This summary is focused on practical setup and day-to-day use on Windows systems, with emphasis on secure, repeatable administration patterns.
+
+## Second-opinion validation
+
+A quick verification against Microsoft Learn confirms the core direction of this document:
+
+- The `Az` module is the current and recommended Azure PowerShell module
+- The legacy `AzureRM` module has been deprecated and is no longer the preferred option
+- PowerShell 7.2 or later is the recommended experience for modern Azure PowerShell use
+- Azure Cloud Shell is a supported browser-based option, but it complements local automation rather than replacing it
+
+This means the document is aligned with current Microsoft guidance, and the strongest improvement is to add deployment-ready operational context, not to change the overall direction.
+
+## Why Azure PowerShell matters
+
+Azure PowerShell is especially valuable for:
+
+- Infrastructure automation and environment standardization
+- Resource provisioning with repeatable scripts
+- Infrastructure-as-Code workflows using PowerShell-based automation
+- Day-2 operations such as reporting, diagnostics, and lifecycle management
+- Hybrid administration scenarios where PowerShell is already part of the operational toolchain
+
+## Prerequisites
+
+Before using Azure PowerShell, ensure the environment meets the following requirements:
+
+- Windows 10 or later, or a supported Windows Server operating system
+- PowerShell 7.2 or later is the recommended version; Windows PowerShell 5.1 remains compatible in some environments, but PowerShell 7 is the preferred modern standard
+- Internet connectivity to download modules from the PowerShell Gallery
+- A valid Azure subscription and permissions to manage resources
+- Appropriate authentication to Microsoft Entra ID
+- Awareness that `AzureRM` is deprecated and should not be used for new automation or new production work
+
+## Check the execution policy
+
+Execution policy controls whether local scripts can run in PowerShell. For administrative scripting, it is often necessary to allow local scripts while maintaining a practical security posture.
+
+```powershell
+Get-ExecutionPolicy -List
+```
+
+Typical output may look like this:
+
+```text
+        Scope ExecutionPolicy
+        ----- ---------------
+MachinePolicy       Undefined
+UserPolicy          Undefined
+Process             Undefined
+CurrentUser         Restricted
+LocalMachine        Restricted
+```
+
+If the policy is set to `Restricted`, the current user can typically allow script execution with:
+
+```powershell
+Set-ExecutionPolicy -Scope CurrentUser -ExecutionPolicy RemoteSigned
+```
+
+Then verify the policy again:
+
+```powershell
+Get-ExecutionPolicy -List
+```
+
+Expected result:
+
+```text
+        Scope ExecutionPolicy
+        ----- ---------------
+MachinePolicy       Undefined
+UserPolicy          Undefined
+Process             Undefined
+CurrentUser         RemoteSigned
+LocalMachine        Restricted
+```
+
+> Use `RemoteSigned` as a common balance between security and usability. In locked-down enterprise environments, policy may need to be managed centrally by Group Policy or Intune.
+
+## Check for existing Azure modules
+
+Before installing the Azure module, it is useful to identify whether a legacy module is already present. This helps avoid confusion between the older `AzureRM` module and the current `Az` module.
+
+```powershell
+Get-Module -Name AzureRM -ListAvailable
+```
+
+The `Az` module should be used for new deployments and automation, while `AzureRM` is legacy and should be avoided in new work.
+
+## Install or update the Az module
+
+The `Az` module is the current Azure management module and is installed from the PowerShell Gallery.
+
+```powershell
+Install-Module -Name Az -Repository PSGallery -Scope CurrentUser -Force -AllowClobber
+```
+
+If the module is already installed, update it to the latest version:
+
+```powershell
+Update-Module -Name Az -Scope CurrentUser -Force
+```
+
+It is also useful to confirm the version installed:
+
+```powershell
+Get-InstalledModule -Name Az -AllVersions | Select-Object Name, Version
+```
+
+## Connect to Azure
+
+Once the module is available, authenticate to Azure using the current user context:
+
+```powershell
+Connect-AzAccount
+```
+
+After sign-in, you can inspect subscription context and verify access:
+
+```powershell
+Get-AzSubscription
+```
+
+To select a specific subscription:
+
+```powershell
+Set-AzContext -Subscription "<subscription-name-or-id>"
+```
+
+To list a small set of resources in the selected subscription:
+
+```powershell
+Get-AzResourceGroup
+```
+
+This is a common validation step to confirm that authentication and RBAC permissions are working as expected.
+
+## Recommended operational habits
+
+- Use `Connect-AzAccount` at the start of each session
+- Prefer `Az` over the deprecated `AzureRM` module
+- Use `Set-AzContext` when working across multiple subscriptions
+- Validate identity and permissions before running destructive scripts
+- Avoid embedding secrets in scripts; prefer managed identities, service principals, or secure secret stores
+- Test automation in a non-production subscription before production rollout
+- Use `Get-AzContext` to confirm the active subscription before running commands
+- Use `Disconnect-AzAccount` when finishing a management session or when switching user contexts
+
+## Common troubleshooting commands
+
+These commands help validate environment health, identity, and module readiness:
+
+```powershell
+Get-Command -Module Az | Select-Object Name, Version
+Get-AzContext
+Get-AzSubscription
+Get-InstalledModule -Name Az -AllVersions | Select-Object Name, Version
+Disconnect-AzAccount
+```
+
+If you are migrating from `AzureRM`, consider the following:
+
+```powershell
+Enable-AzContextAutosave
+Get-Module -Name AzureRM -ListAvailable
+```
+
+This helps identify whether old automation remains in the environment and whether compatibility aliases are still needed during migration.
+
+## Practical improvement ideas for your knowledge base
+
+To make this note more valuable as a reusable knowledge asset, add the following next:
+
+- A short comparison between `Az` and `AzureRM`
+- A simple migration checklist from AzureRM to Az
+- A section on authentication patterns: user context, service principal, managed identity, and device code authentication
+- A short examples section for `Get-AzResource`, `Get-AzVM`, and `Get-AzResourceGroup`
+- A troubleshooting table covering: authentication failure, subscription mismatch, module not found, and execution policy restrictions
+- A secure automation section emphasizing `Set-AzContext`, least privilege, and environment-specific secret management
+
+This is the right type of knowledge to keep evolving because it combines installation basics, real operational checks, and a migration story that is highly relevant in enterprise Azure environments.
+
+## Azure Cloud Shell
+
+Azure Cloud Shell is a browser-hosted shell environment that provides `PowerShell` or `Bash` without requiring local installation. It is useful when:
+
+- You need quick Azure administration without local setup
+- You are working from a managed device or restricted environment
+- You want a familiar shell experience without installing modules locally
+
+Cloud Shell is especially practical for short operational tasks, troubleshooting, and quick Azure validation checks. However, for repeatable automation, scripted deployment, and environment standardization, local automation with `Az` is usually the better approach.
+
+## Final recommendation
+
+For most Windows administrators, the practical sequence is:
+
+1. Verify the PowerShell execution policy
+2. Install or update the `Az` module
+3. Authenticate with `Connect-AzAccount`
+4. Set the correct subscription context
+5. Validate access with `Get-AzResourceGroup` or `Get-AzSubscription`
+6. Use Azure Cloud Shell for ad hoc work and local PowerShell for production automation
+
+This approach creates a secure and repeatable baseline for Azure administration and is consistent with Microsoft’s guidance for modern Azure automation.
+
+## Reference
+
+Microsoft Learn: Azure PowerShell module documentation and installation guidance.
+
+https://learn.microsoft.com/en-us/powershell/azure/new-azureps-module-az
+
+Training resource:
+
+https://learn.microsoft.com/en-us/training/modules/review-azure-powershell-module
+
+## Improvement note for long-term knowledge growth
+
+This document is already strong as a foundational Azure PowerShell reference. To keep it useful over time, the next evolution should focus on operational depth rather than more general introduction:
+
+1. Add a short migration section from AzureRM to Az
+2. Add examples for real resource discovery and subscription operations
+3. Include a troubleshooting matrix for common admin issues
+4. Differentiate between local shell automation and Azure Cloud Shell scenarios
+5. Add a security/least-privilege section to strengthen practice-oriented knowledge
+
+This turns the note from a simple setup guide into a practical administrative reference that supports both learning and real-world Azure management work.
