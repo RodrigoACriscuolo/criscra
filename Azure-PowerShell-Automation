@@ -9,7 +9,7 @@ MS. Topic: Automation script to list all resources (VMs) in an Azure subscriptio
 
 
 #Azure PowerShell:```powershell
-Reference: https://learn.microsoft.com/en-us/powershell/azure/new-azureps-module-az?view=azps-10.12.0
+Summarizing souce: https://learn.microsoft.com/en-us/powershell/azure/new-azureps-module-az?view=azps-10.12.0
 Prerequisites:
    # - Ensure you have the Azure PowerShell module installed
    # - To open PowerShell, you can use the following command: Get-ExecutionPolicy -List
@@ -19,7 +19,6 @@ Prerequisites:
    # - If the module is not installed, you can install it by running the following command: Install-Module -Name Az -Repository PSGallery -Force
    # - If the module is already installed, you can update it by running the following command: Update-Module -Name Az - Force
    # - Once the module is installed and the execution policy is set correctly, you can use the following commands to connect to your Azure account, authenticate, and retrieve all resources in a subscription: Connect-azaccount
-
 
 Get-ExecutionPolicy -List
 Get-Module -Name AzureRM -ListAvailable
@@ -64,58 +63,396 @@ What this script does:
         * Admin username of the VM
         * Provisioning state
         * Power state
-    ...
+... 
     
-    Automation Script to list all resources in an Azure subscription
+Automation Script to list all resources in an Azure subscription
 
-try {
-    # Connect to Azure account
-    Connect-AzAccount -errorAction Stop
+<#
+.SYNOPSIS
+    Azure inventory/report script:
+      - VM report (detailed)
+      - "List all Azure resources" report (manager-friendly)
 
-    #Prompt for VM name and resource group (multiple Vms)
-    Get-AzVM | ForEach-Object {
-        $vm = $_
-        $vmName = $vm.Name
-        $resourceGroupName = $vm.ResourceGroupName
+.DESCRIPTION
+    Connects to Azure using the Az PowerShell module and produces:
+      - A VM inventory with status, size, OS, admin username, provisioning & power state, tags.
+      - A compact list of all resources in the subscription (Name, Type, Resource Group, Location, SubscriptionId).
+    Outputs to console and can export to CSV and/or JSON.
 
-        # Get VM properties
-        $vmProperties = Get-AzVM -ResourceGroupName $resourceGroupName -Name $vmName -ErrorAction Stop
+.NOTES
+    Author: Rodrigo A. Criscuolo
+    Revised: GitHub Copilot / Assistant
+    MS. Date: 2026-10-12
 
-        # Get VM status
-        $vmStatus = (Get-AzVM -ResourceGroupName $resourceGroupName -Name $vmName -Status).Statuses | Where-Object { $_.Code -like 'PowerState/*' } | Select-Object -ExpandProperty DisplayStatus
+.PREREQUISITES
+    - Az PowerShell module (Install-Module -Name Az -Repository PSGallery -Force)
+    - The account running the script must have Reader access on the subscription (or higher).
+    - To retrieve VM power state, the account needs permission to read instance view for VM resources.
 
-        # Output Key VM Display report
-        Write-Output "VM Name: $($vmProperties.Name)"
-        Write-Output "Resource Group: $($vmProperties.ResourceGroupName)"
-        Write-Output "Location: $($vmProperties.Location)"
-        Write-Output "Size (SKU): $($vmProperties.HardwareProfile.VmSize)"
-        Write-Output "OS Type: $($vmProperties.StorageProfile.OsDisk.OsType)"
-        Write-Output "OS Disk Name: $($vmProperties.StorageProfile.OsDisk.Name)
-        Write-Output "OS Disk Size (GB): $($vmProperties.StorageProfile.OsDisk.DiskSizeGB)"
-        Write-Output "Admin Username: $($vmProperties.OsProfile.AdminUsername)"
-        Write-Output "Provisioning State: $($vmProperties.ProvisioningState)"
-        Write-Output "Power State: $($vmStatus)"
-        Write-Output "Tags: $($vmProperties.Tags | ForEach-Object { "$($_.Key)=$($_.Value)" } | Out-String)"
-        Write-Output "----------End of Report----------"
-    } catch {
-        Write-Host "Error: $($_.Exception.Message)" -ForegroundColor Red
+.EXAMPLE
+    # VM report for entire subscription and export to CSV:
+    .\azure-vm-and-resources-report.ps1 -ExportCsvPath .\vm-report.csv
 
+    # VM report for a specific resource group and export to JSON:
+    .\azure-vm-and-resources-report.ps1 -ResourceGroupName MyRG -ExportJsonPath .\vm-report.json
+
+    # List all resources (manager view) and export to CSV:
+    .\azure-vm-and-resources-report.ps1 -ListAllResources -ExportCsvPath .\all-resources.csv
+
+.PARAMETER SubscriptionId
+    Optional subscription id to run the report against. If omitted, the current context subscription is used.
+
+.PARAMETER ResourceGroupName
+    Optional: restrict VM report to a resource group.
+
+.PARAMETER VMName
+    Optional: restrict VM report to a single VM name.
+
+.PARAMETER Tag
+    Optional: filter VMs by tag. Accepts 'Key' or 'Key=Value'.
+
+.PARAMETER ListAllResources
+    Switch. When provided the script will also generate the manager-friendly "all resources" report.
+
+.PARAMETER ExportCsvPath
+    Optional path to export the resulting report (VM or AllResources as applicable) to CSV.
+
+.PARAMETER ExportJsonPath
+    Optional path to export the resulting report to JSON.
+
+#>
+
+[CmdletBinding()]
+param(
+    [string] $SubscriptionId,
+    [string] $ResourceGroupName,
+    [string] $VMName,
+    [string] $Tag,
+    [switch] $ListAllResources,
+    [string] $ExportCsvPath,
+    [string] $ExportJsonPath
+)
+
+function Write-Log {
+    param([string]$Message, [string]$Level = 'INFO')
+    $time = (Get-Date).ToString('s')
+    Write-Output "[$time] [$Level] $Message"
 }
 
-Example Output:
+function Parse-TagFilter {
+    param([string] $TagString)
+    if (-not $TagString) { return $null }
+    if ($TagString -match '=') {
+        $parts = $TagString.Split('=',2)
+        return @{ Key = $parts[0].Trim(); Value = $parts[1].Trim(); HasValue = $true }
+    } else {
+        return @{ Key = $TagString.Trim(); Value = $null; HasValue = $false }
+    }
+}
+
+function Get-SubscriptionIdFromResourceId {
+    param([string] $resourceId)
+    if (-not $resourceId) { return $null }
+    $segments = $resourceId -split '/'
+    # expected format: /subscriptions/{subId}/...
+    if ($segments.Length -ge 3) { return $segments[2] }
+    return $null
+}
+
+function Build-VmObject {
+    param($vm)
+    # safe accessors with fallback values
+    $osType = if ($vm.StorageProfile -and $vm.StorageProfile.OsDisk) { $vm.StorageProfile.OsDisk.OsType } else { 'Unknown' }
+    $osDiskName = if ($vm.StorageProfile -and $vm.StorageProfile.OsDisk -and $vm.StorageProfile.OsDisk.Name) { $vm.StorageProfile.OsDisk.Name } else { 'N/A' }
+    $osDiskSizeGB = if ($vm.StorageProfile -and $vm.StorageProfile.OsDisk -and $vm.StorageProfile.OsDisk.DiskSizeGB) { $vm.StorageProfile.OsDisk.DiskSizeGB } else { $null }
+    $adminUser = if ($vm.OSProfile -and $vm.OSProfile.AdminUsername) { $vm.OSProfile.AdminUsername } else { 'N/A' }
+    $powerState = ($vm.Statuses | Where-Object { $_.Code -like 'PowerState/*' } | Select-Object -First 1).DisplayStatus
+    if (-not $powerState) { $powerState = 'Unknown' }
+
+    $tags = if ($vm.Tags -and $vm.Tags.Count -gt 0) {
+        ($vm.Tags.GetEnumerator() | ForEach-Object { "$($_.Key)=$($_.Value)" }) -join '; '
+    } else { 'None' }
+
+    $subscriptionId = Get-SubscriptionIdFromResourceId -resourceId $vm.Id
+
+    [PSCustomObject]@{
+        SubscriptionId     = $subscriptionId
+        VMName             = $vm.Name
+        ResourceGroup      = $vm.ResourceGroupName
+        Location           = $vm.Location
+        Size               = if ($vm.HardwareProfile) { $vm.HardwareProfile.VmSize } else { 'Unknown' }
+        OSType             = $osType
+        OSDiskName         = $osDiskName
+        OSDiskSizeGB       = $osDiskSizeGB
+        AdminUsername      = $adminUser
+        ProvisioningState  = if ($vm.ProvisioningState) { $vm.ProvisioningState } else { 'Unknown' }
+        PowerState         = $powerState
+        Tags               = $tags
+        VMId               = $vm.Id
+    }
+}
+
+function Get-VMReport {
+    param(
+        [string] $SubscriptionId,
+        [string] $ResourceGroupName,
+        [string] $VMName,
+        [string] $TagFilter
+    )
+
+    # Build VM list efficiently. Use -Status to get power states in the same call.
+    try {
+        if ($ResourceGroupName -and $VMName) {
+            $vms = Get-AzVM -ResourceGroupName $ResourceGroupName -Name $VMName -Status -ErrorAction Stop
+            if ($null -eq $vms) { $vms = @() }
+        }
+        elseif ($ResourceGroupName) {
+            $vms = Get-AzVM -ResourceGroupName $ResourceGroupName -Status -ErrorAction Stop
+        }
+        elseif ($VMName) {
+            $vms = Get-AzVM -Name $VMName -Status -ErrorAction Stop
+            if ($null -eq $vms) { $vms = @() }
+        }
+        else {
+            $vms = Get-AzVM -Status -ErrorAction Stop
+        }
+    } catch {
+        throw "Failed to get VMs: $($_.Exception.Message)"
+    }
+
+    # Normalize single-object to array
+    if ($vms -and ($vms -isnot [System.Array])) {
+        $vms = ,$vms
+    }
+
+    $tagSpec = Parse-TagFilter -TagString $TagFilter
+
+    if ($tagSpec) {
+        if ($tagSpec.HasValue) {
+            $vms = $vms | Where-Object { $_.Tags -and $_.Tags.ContainsKey($tagSpec.Key) -and ($_.Tags[$tagSpec.Key] -eq $tagSpec.Value) }
+        } else {
+            $vms = $vms | Where-Object { $_.Tags -and $_.Tags.ContainsKey($tagSpec.Key) }
+        }
+    }
+
+    $report = @()
+    foreach ($vm in $vms) {
+        try {
+            $report += Build-VmObject -vm $vm
+        } catch {
+            Write-Log "Skipping VM '$($vm.Name)': $($_.Exception.Message)" 'WARN'
+        }
+    }
+
+    return $report
+}
+
+function Get-AllResourcesReport {
+    param([string] $SubscriptionId)
+
+    try {
+        $resources = Get-AzResource -ErrorAction Stop
+    } catch {
+        throw "Failed to get resources: $($_.Exception.Message)"
+    }
+
+    # Normalize and map to a compact manager-friendly object
+    $report = $resources | ForEach-Object {
+        $subId = Get-SubscriptionIdFromResourceId -resourceId $_.Id
+        [PSCustomObject]@{
+            SubscriptionId   = $subId
+            Name             = $_.Name
+            ResourceType     = $_.ResourceType
+            ResourceGroup    = $_.ResourceGroupName
+            Location         = if ($_.Location) { $_.Location } else { 'N/A' }
+            ResourceId       = $_.Id
+        }
+    }
+
+    return $report
+}
+
+# ---------- Main script ----------
+try {
+    Write-Log "Starting Azure inventory script."
+
+    # Connect to Azure
+    Write-Log "Connecting to Azure..."
+    Connect-AzAccount -ErrorAction Stop
+
+    if ($SubscriptionId) {
+        Write-Log "Setting context to subscription $SubscriptionId"
+        Set-AzContext -SubscriptionId $SubscriptionId -ErrorAction Stop
+    } else {
+        $currentContext = Get-AzContext
+        Write-Log "Using current subscription: $($currentContext.Subscription.Id)"
+    }
+
+    # Generate VM report
+    Write-Log "Collecting VM information..."
+    $vmReport = Get-VMReport -SubscriptionId $SubscriptionId -ResourceGroupName $ResourceGroupName -VMName $VMName -TagFilter $Tag
+
+    if ($vmReport.Count -eq 0) {
+        Write-Log "No VMs found with the supplied filters." 'WARN'
+    } else {
+        # Output to console (table) and optionally export
+        Write-Log "VM report collected: $($vmReport.Count) VMs."
+        $vmReport | Sort-Object ResourceGroup, VMName | Format-Table -AutoSize
+
+        if ($ExportCsvPath) {
+            Write-Log "Exporting VM report to CSV: $ExportCsvPath"
+            $vmReport | Sort-Object ResourceGroup, VMName | Export-Csv -Path $ExportCsvPath -NoTypeInformation -Force
+        }
+        if ($ExportJsonPath) {
+            Write-Log "Exporting VM report to JSON: $ExportJsonPath"
+            $vmReport | Sort-Object ResourceGroup, VMName | ConvertTo-Json -Depth 5 | Out-File -FilePath $ExportJsonPath -Encoding UTF8
+        }
+    }
+
+    # Optionally generate all-resources manager view
+    if ($ListAllResources) {
+        Write-Log "Collecting all Azure resources (manager view)..."
+        $allResources = Get-AllResourcesReport -SubscriptionId $SubscriptionId
+
+        if ($allResources.Count -eq 0) {
+            Write-Log "No resources found in the subscription." 'WARN'
+        } else {
+            # Manager-friendly summary table
+            Write-Log "All-resources report collected: $($allResources.Count) resources."
+            $allResources | Select-Object SubscriptionId, Name, ResourceType, ResourceGroup, Location | Sort-Object ResourceGroup, Name | Format-Table -AutoSize
+
+            if ($ExportCsvPath -and -not $vmReport) {
+                # If user passed only a single ExportCsvPath and asked for both, append suffix
+                $csvPath = $ExportCsvPath
+                $base = [IO.Path]::GetFileNameWithoutExtension($csvPath)
+                $dir = [IO.Path]::GetDirectoryName($csvPath)
+                if (-not $dir) { $dir = '.' }
+                $resCsv = Join-Path $dir ($base + '-all-resources.csv')
+                Write-Log "Exporting All Resources report to CSV: $resCsv"
+                $allResources | Sort-Object ResourceGroup, Name | Export-Csv -Path $resCsv -NoTypeInformation -Force
+            } elseif ($ExportCsvPath) {
+                # If CSV path was provided already for VM, export a second file for resources
+                $csvPath = $ExportCsvPath
+                $base = [IO.Path]::GetFileNameWithoutExtension($csvPath)
+                $dir = [IO.Path]::GetDirectoryName($csvPath)
+                if (-not $dir) { $dir = '.' }
+                $resCsv = Join-Path $dir ($base + '-all-resources.csv')
+                Write-Log "Exporting All Resources report to CSV: $resCsv"
+                $allResources | Sort-Object ResourceGroup, Name | Export-Csv -Path $resCsv -NoTypeInformation -Force
+            }
+
+            if ($ExportJsonPath) {
+                $jsonPath = $ExportJsonPath
+                $base = [IO.Path]::GetFileNameWithoutExtension($jsonPath)
+                $dir = [IO.Path]::GetDirectoryName($jsonPath)
+                if (-not $dir) { $dir = '.' }
+                $resJson = Join-Path $dir ($base + '-all-resources.json')
+                Write-Log "Exporting All Resources report to JSON: $resJson"
+                $allResources | ConvertTo-Json -Depth 5 | Out-File -FilePath $resJson -Encoding UTF8
+            }
+        }
+    }
+
+    Write-Log "Script completed successfully."
+} catch {
+    Write-Log "Fatal error: $($_.Exception.Message)" 'ERROR'
+    Exit 1
+}
+
+Example VM Report .txt output:
 -----------------
-===== VM Analysis Report =====
-Name: MyVM
-Resource Group: MyResourceGroup
+[2026-10-12T10:15:30] [INFO] Starting Azure inventory script.
+[2026-10-12T10:15:31] [INFO] Connecting to Azure...
+[2026-10-12T10:15:34] [INFO] Using current subscription: 11111111-2222-3333-4444-555555666666
+[2026-10-12T10:15:34] [INFO] Collecting VM information...
+[2026-10-12T10:15:35] [INFO] VM report collected: 3 VMs.
+
+VM Name: App01
+Resource Group: rg-app-prod
 Location: eastus
-Size: Standard_DS1_v2
+Size (SKU): Standard_D2s_v3
 OS Type: Windows
-OS Disk Size (GB): 128
+OS Disk Name: app01-osdisk
+OS Disk Size (GB): 127
 Admin Username: azureadmin
 Provisioning State: Succeeded
 Power State: VM running
-===== End of Report =====
+Tags: env=prod; app=web; owner=platform
+---------- End of Report ----------
+
+VM Name: DB01
+Resource Group: rg-data-prod
+Location: westus2
+Size (SKU): Standard_DS3_v2
+OS Type: Linux
+OS Disk Name: db01-osdisk
+OS Disk Size (GB): 256
+Admin Username: azureuser
+Provisioning State: Succeeded
+Power State: VM deallocated
+Tags: env=prod; app=db; owner=data-team
+---------- End of Report ----------
+
+VM Name: JumpBox01
+Resource Group: rg-management
+Location: centralus
+Size (SKU): Standard_B2s
+OS Type: Windows
+OS Disk Name: jumpbox01-osdisk
+OS Disk Size (GB): 64
+Admin Username: adminuser
+Provisioning State: Succeeded
+Power State: VM running
+Tags: env=dev; app=bastion; owner=security
+---------- End of Report ----------
+
+[2026-10-12T10:15:36] [INFO] Script completed successfully.
+
+Example All Resources Report .txt output:
+
+[2026-10-12T10:15:37] [INFO] Collecting all Azure resources (manager view)...
+[2026-10-12T10:15:38] [INFO] All-resources report collected: 11 resources.
+
+SubscriptionId                      Name          ResourceType                              ResourceGroup       Location
+-------------                      ----          ------------                              -------------       --------
+11111111-2222-3333-4444-555555666666 App01         Microsoft.Compute/virtualMachines         rg-app-prod         eastus
+11111111-2222-3333-4444-555555666666 DB01          Microsoft.Compute/virtualMachines         rg-data-prod        westus2
+11111111-2222-3333-4444-555555666666 JumpBox01     Microsoft.Compute/virtualMachines         rg-management      centralus
+11111111-2222-3333-4444-555555666666 app-plan      Microsoft.Web/serverfarms                 rg-app-prod         eastus
+11111111-2222-3333-4444-555555666666 app-prod      Microsoft.Web/sites                       rg-app-prod         eastus
+11111111-2222-3333-4444-555555666666 sql-prod      Microsoft.Sql/servers                     rg-data-prod        westus2
+11111111-2222-3333-4444-555555666666 sql-prod-db   Microsoft.Sql/servers/databases            rg-data-prod        westus2
+11111111-2222-3333-4444-555555666666 storageacct01 Microsoft.Storage/storageAccounts       rg-shared          eastus
+11111111-2222-3333-4444-555555666666 vnet-prod     Microsoft.Network/virtualNetworks         rg-network         eastus
+11111111-2222-3333-4444-555555666666 subnet-prod   Microsoft.Network/virtualNetworks/subnets rg-network         eastus
+11111111-2222-3333-4444-555555666666 kv-prod       Microsoft.KeyVault/vaults                  rg-security         centralus
+
+Example VM Report .csv output:
+SubscriptionId,VMName,ResourceGroup,Location,Size,OSType,OSDiskName,OSDiskSizeGB,AdminUsername,ProvisioningState,PowerState,Tags
+11111111-2222-3333-4444-555555666666,App01,rg-app-prod,eastus,Standard_D2s_v3,Windows,app01-osdisk,127,azureadmin,Succeeded,VM running,"env=prod; app=web; owner=platform"
+11111111-2222-3333-4444-555555666666,DB01,rg-data-prod,westus2,Standard_DS3_v2,Linux,db01-osdisk,256,azureuser,Succeeded,VM deallocated,"env=prod; app=db; owner=data-team"
+11111111-2222-3333-4444-555555666666,JumpBox01,rg-management,centralus,Standard_B2s,Windows,jumpbox01-osdisk,64,adminuser,Succeeded,VM running,"env=dev; app=bastion; owner=security"
+
+Example All Resources .json output:
+[
+  {
+    "SubscriptionId": "11111111-2222-3333-4444-555555666666",
+    "Name": "App01",
+    "ResourceType": "Microsoft.Compute/virtualMachines",
+    "ResourceGroup": "rg-app-prod",
+    "Location": "eastus",
+    "ResourceId": "/subscriptions/11111111-2222-3333-4444-555555666666/resourceGroups/rg-app-prod/providers/Microsoft.Compute/virtualMachines/App01"
+  },
+  {
+    "SubscriptionId": "11111111-2222-3333-4444-555555666666",
+    "Name": "DB01",
+    "ResourceType": "Microsoft.Compute/virtualMachines",
+    "ResourceGroup": "rg-data-prod",
+    "Location": "westus2",
+    "ResourceId": "/subscriptions/11111111-2222-3333-4444-555555666666/resourceGroups/rg-data-prod/providers/Microsoft.Compute/virtualMachines/DB01"
+  }
+]
+
 
 # Note: This script retrieves all VMs in the subscription and outputs their properties and status. You can modify the script to filter specific VMs or resource groups as needed.
 # It is recommended to run this script in a PowerShell environment with the necessary permissions to access the Azure subscription and resources.
-# Script created by Rodrigo A Criscuolo - Azure PowerShell Automation and revised by GitHub Copilot.
