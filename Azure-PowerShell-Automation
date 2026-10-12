@@ -1,4 +1,13 @@
-#Script que lista todos os recursos em uma assinatura do Azure usando Azure PowerShell.Aqui está um script em PowerShell que lista todos os recursos em uma assinatura do Azure usando o módulo
+Title: Azure-PowerShell-Automation
+Description: Script to list all resouces in an Azure Subscription
+Author: Rodrigo Aurelio Criscuolo
+MS. Author: RodrigoACriscuolo
+MS. Date 10/12/2026
+MS. Topic: Automation script to list all resources (VMs) in an Azure subscription
+
+
+
+
 #Azure PowerShell:```powershell
 Reference: https://learn.microsoft.com/en-us/powershell/azure/new-azureps-module-az?view=azps-10.12.0
 Prerequisites:
