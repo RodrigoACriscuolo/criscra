@@ -1,4 +1,4 @@
-# Hi there, I'm Rodrigo Criscuolo
+# Hi there, I'm Rodrigo A. Criscuolo 👋
 
 ### **Senior Infrastructure & CloudOps (Cloud Operations) Engineer**
 > *Architecting resilient hybrid environments, automating enterprise cloud infrastructure, and integrating AI-driven operations.*
@@ -7,14 +7,13 @@
 
 ### **🚀 About Me**
 
-- ⚡ **Core Focus:** Cloud & Hybrid Infrastructure Management, Cloud Architecture, IAM (Identity & Access Management), Azure & M365 Administration, Technical Troubleshooting Specialist and Enterprise System Stability.
+- ⚡ **Core Focus:** Cloud & Hybrid Infrastructure Management, Cloud Architecture, IAM (Identity & Access Management), Azure & M365 Administration, Technical Troubleshooting, and Enterprise System Stability.
 - 🎯 **Current Specialization:** AI integration in hybrid infrastructure operations and future-proofing enterprise IT workloads.
 - 📍 **Location:** Toronto, ON | Open to Hybrid & Remote Opportunities
 
 ---
 
 ### **🛠️ Tech Stack & Ecosystem**
-Articles, SOPs, and Research for Daily Use: Solving Real-World Problems in Infrastructure and CloudOps
 
 #### **Cloud & Virtualization**
 `AWS` `Azure` `GCP` `VMware` `Hybrid Cloud` `Linux (RHEL/Ubuntu)` `Windows Server`
@@ -35,6 +34,11 @@ Articles, SOPs, and Research for Daily Use: Solving Real-World Problems in Infra
 
 ---
 
+### **📚 Articles, SOPs & Research**
+*Documenting SOPs, architecture blueprints, and real-world troubleshooting guides for daily infrastructure and CloudOps practice.*
+
+---
+
 ### **📊 GitHub Activity & Insights**
 
 <div align="center">
@@ -45,4 +49,6 @@ Articles, SOPs, and Research for Daily Use: Solving Real-World Problems in Infra
 ---
 
 ### **📫 Connect with Me**
-- **LinkedIn:** ((https://www.linkedin.com/in/rodrigo-aurelio-criscuolo))
+
+- **LinkedIn:** [linkedin.com/in/rodrigo-aurelio-criscuolo](https://www.linkedin.com/in/rodrigo-aurelio-criscuolo)
+- **Email:** [Contact via LinkedIn](https://www.linkedin.com/in/rodrigo-aurelio-criscuolo)
