@@ -7,7 +7,10 @@ Prerequisites:
    # - How to check if the Azure PowerShell module is installed and how to install it if it is not
    # - Check the PowerShell excecution policy to ensure that scripts can be run. You can check the execution policy by running the following command:    # - If the execution policy is set to "Restricted", you will need to change it to "RemoteSigned" or "Unrestricted" to allow scripts to run. You can change the execution policy by running the following command: Get-ExecutionPolicy -List 
    # - After changing the execution policy, you can re-run the command to check if the policy has been set correctly. You can also check if the Azure PowerShell module is installed by running the following command: Set-ExecutionPolicy -ExecutionPolicy RemoteSigned -Scope CurrentUser 
-   # - If the module is not installed, you can install it by running the following command: 
+   # - If the module is not installed, you can install it by running the following command: Install-Module -Name Az -Repository PSGallery -Force
+   # - If the module is already installed, you can update it by running the following command: Update-Module -Name Az - Force
+   # - Once the module is installed and the execution policy is set correctly, you can use the following commands to connect to your Azure account, authenticate, and retrieve all resources in a subscription: Connect-azaccount
+
 
 Get-ExecutionPolicy -List
 Get-Module -Name AzureRM -ListAvailable
@@ -37,22 +40,73 @@ MachinePolicy       Undefined
 ...
 
 Install-Module -Name Az -Repository PSGallery -Force
+Update-Module -Name Az -Force
+Connect-azaccount #connect to your Azure account
 
+Automation Script to list all resources in an Azure subscription
+What this script does:
+   # - Connects to your Azure account
+   # - Retrieves all resources in the subscription
+   # - Retrieves VM properties for each resource
+   # - Retreives VM status (running, stopped, deallocated, etc.)
+   # - Displays a clean report with:
+        * VM name, resource group, location, size, OS type, status, and tags
+        * Size (SKU) of the VM
+        * Admin username of the VM
+        * Provisioning state
+        * Power state
+    ...
+    
+    Automation Script to list all resources in an Azure subscription
 
+try {
+    # Connect to Azure account
+    Connect-AzAccount -errorAction Stop
 
-PowerShell commands, list all commands to connect to Azure, authenticate, and retrieve all resources in a subscription.
-```powershell
-connect-azaccount #connect to your Azure account
-Get-AzSubscription #list all subscriptions available to your account
-# Select the subscription you want to work with
-Select-AzSubscription -SubscriptionId "your-subscription-id" #replace with your subscription ID
-# Retrieve all resources in the selected subscription
-Get-AzResource | Select-Object Name, ResourceType, ResourceGroupName, Location | Format-Table -AutoSize
-connect azure as a service principal using the following command:
-```powershell
-$tenantId = "your-tenant-id" #replace with your tenant ID
-$clientId = "your-client-id" #replace with your client ID
-$clientSecret = "your-client-secret" #replace with your client secret
-$securePassword = ConvertTo-SecureString $clientSecret -AsPlainText -Force
-$credential = New-Object System.Management.Automation.PSCredential($clientId, $securePassword)
-Connect-AzAccount -ServicePrincipal 
+    #Prompt for VM name and resource group (multiple Vms)
+    Get-AzVM | ForEach-Object {
+        $vm = $_
+        $vmName = $vm.Name
+        $resourceGroupName = $vm.ResourceGroupName
+
+        # Get VM properties
+        $vmProperties = Get-AzVM -ResourceGroupName $resourceGroupName -Name $vmName -ErrorAction Stop
+
+        # Get VM status
+        $vmStatus = (Get-AzVM -ResourceGroupName $resourceGroupName -Name $vmName -Status).Statuses | Where-Object { $_.Code -like 'PowerState/*' } | Select-Object -ExpandProperty DisplayStatus
+
+        # Output Key VM Display report
+        Write-Output "VM Name: $($vmProperties.Name)"
+        Write-Output "Resource Group: $($vmProperties.ResourceGroupName)"
+        Write-Output "Location: $($vmProperties.Location)"
+        Write-Output "Size (SKU): $($vmProperties.HardwareProfile.VmSize)"
+        Write-Output "OS Type: $($vmProperties.StorageProfile.OsDisk.OsType)"
+        Write-Output "OS Disk Name: $($vmProperties.StorageProfile.OsDisk.Name)
+        Write-Output "OS Disk Size (GB): $($vmProperties.StorageProfile.OsDisk.DiskSizeGB)"
+        Write-Output "Admin Username: $($vmProperties.OsProfile.AdminUsername)"
+        Write-Output "Provisioning State: $($vmProperties.ProvisioningState)"
+        Write-Output "Power State: $($vmStatus)"
+        Write-Output "Tags: $($vmProperties.Tags | ForEach-Object { "$($_.Key)=$($_.Value)" } | Out-String)"
+        Write-Output "----------End of Report----------"
+    } catch {
+        Write-Host "Error: $($_.Exception.Message)" -ForegroundColor Red
+
+}
+
+Example Output:
+-----------------
+===== VM Analysis Report =====
+Name: MyVM
+Resource Group: MyResourceGroup
+Location: eastus
+Size: Standard_DS1_v2
+OS Type: Windows
+OS Disk Size (GB): 128
+Admin Username: azureadmin
+Provisioning State: Succeeded
+Power State: VM running
+===== End of Report =====
+
+# Note: This script retrieves all VMs in the subscription and outputs their properties and status. You can modify the script to filter specific VMs or resource groups as needed.
+# It is recommended to run this script in a PowerShell environment with the necessary permissions to access the Azure subscription and resources.
+# Script created by Rodrigo A Criscuolo - Azure PowerShell Automation and revised by GitHub Copilot.
