@@ -5,3 +5,75 @@ Scope: knowledge
 Purpose: Learning and imprument knowledge
 
 In provisioning
+
+Project Directory Structure
+
+terraform-azure-landing-zone/
+├── main.tf
+├── variables.tf
+├── outputs.tf
+├── terraform.tfvars
+└── modules/
+    └── network/
+        ├── main.tf
+        ├── variables.tf
+        └── outputs.tf
+
+
+Key Production Code Snippets
+modules/network/main.tf (Modular Infrastructure)
+
+resource "azurerm_resource_group" "rg" {
+  name     = var.resource_group_name
+  location = var.location
+
+  tags = var.tags
+}
+
+resource "azurerm_virtual_network" "vnet" {
+  name                = "${var.resource_group_name}-vnet"
+  address_space       = [var.vnet_cidr]
+  location            = azurerm_resource_group.rg.location
+  resource_group_name = azurerm_resource_group.rg.name
+
+  tags = var.tags
+}
+
+resource "azurerm_subnet" "subnet" {
+  name                 = "internal-subnet"
+  resource_group_name  = azurerm_resource_group.rg.name
+  virtual_network_name = azurerm_virtual_network.vnet.name
+  address_prefixes     = [var.subnet_cidr]
+}
+
+main.tf (Root Calling Module)
+
+terraform {
+  required_version = ">= 1.5.0"
+  required_providers {
+    azurerm = {
+      source  = "hashicorp/azurerm"
+      version = "~> 3.0"
+    }
+  }
+  # Recommended: Store state remotely in Azure Blob Storage or S3
+  # backend "azurerm" {}
+}
+
+provider "azurerm" {
+  features {}
+}
+
+module "network" {
+  source              = "./modules/network"
+  resource_group_name = "rg-prod-infrastructure"
+  location            = "East US"
+  vnet_cidr           = "10.0.0.0/16"
+  subnet_cidr         = "10.0.1.0/24"
+
+  tags = {
+    Environment = "Production"
+    ManagedBy   = "Terraform"
+    Owner       = "Rodrigo Criscuolo"
+  }
+}

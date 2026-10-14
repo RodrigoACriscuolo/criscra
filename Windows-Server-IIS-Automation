@@ -1,0 +1,129 @@
+# Troubleshooting IIS Application Pool Failures
+# Before testing: run on the target IIS server and provide its site ID; provide the affected app-pool name if known.
+# Review note: Reviewed with VS Code Copilot Chat on 2026-10-14; this is not a live-server test.
+# Purpose: Read-only triage of IIS features, services, app-pool state/configuration,
+# System events, and the selected site's W3C log for the supplied ASP.NET sample.
+# Run on the IIS server in an elevated Windows PowerShell 5.1 session.
+# Sample note: AzureWorkshops/samples-simple-iis-website targets ASP.NET Web Forms
+# on .NET Framework 4.5.2; this check includes only the IIS and ASP.NET features it needs.
+# Observation: Rapid Fail Protection output is configuration only. Use the WAS
+# and worker-process events below to confirm whether the protection was triggered.
+# Observation: W3C logging must include sc-status and sc-win32-status to report them.
+
+# Adjust these values for the affected application and IIS site.
+$siteId = 1
+$appPoolName = $null # Set a pool name to inspect only that pool; null checks all pools.
+$logRoot = 'C:\inetpub\logs\LogFiles'
+$lookbackHours = 24
+$requiredFeatures = @('Web-Server', 'Web-Asp-Net45')
+$requiredServices = @('W3SVC', 'WAS')
+$iisProviders = @('Microsoft-Windows-IIS-W3SVC-WP', 'Microsoft-Windows-WAS')
+
+Write-Host '--- IIS Feature Availability ---' -ForegroundColor Cyan
+if (Get-Command Get-WindowsFeature -ErrorAction SilentlyContinue) {
+    foreach ($feature in $requiredFeatures) {
+        try {
+            $featureInfo = Get-WindowsFeature -Name $feature -ErrorAction Stop
+            if ($featureInfo) {
+                $state = if ($featureInfo.Installed) { 'Installed' } else { 'Not installed' }
+                Write-Host "$($featureInfo.Name): $state"
+            } else {
+                Write-Host "${feature}: Not found on this Windows Server version" -ForegroundColor Yellow
+            }
+        } catch {
+            Write-Host "${feature}: Could not query ($($_.Exception.Message))" -ForegroundColor Yellow
+        }
+    }
+} else {
+    Write-Host 'Get-WindowsFeature is unavailable. Run this check on Windows Server with ServerManager installed.' -ForegroundColor Yellow
+}
+
+Write-Host "`n--- Core IIS Services ---" -ForegroundColor Cyan
+foreach ($serviceName in $requiredServices) {
+    $service = Get-Service -Name $serviceName -ErrorAction SilentlyContinue
+    if ($service) {
+        $color = if ($service.Status -eq 'Running') { 'Green' } else { 'Red' }
+        Write-Host "$serviceName is $($service.Status)" -ForegroundColor $color
+    } else {
+        Write-Host "$serviceName is not installed or could not be queried" -ForegroundColor Red
+    }
+}
+
+Write-Host "`n--- Application Pool State and Rapid Fail Protection ---" -ForegroundColor Cyan
+try {
+    Import-Module WebAdministration -ErrorAction Stop
+    $appPools = Get-ChildItem IIS:\AppPools -ErrorAction Stop
+    if ($appPoolName) {
+        $appPools = $appPools | Where-Object { $_.Name -eq $appPoolName }
+    }
+
+    if (-not $appPools) {
+        Write-Host 'No matching application pools found.' -ForegroundColor Yellow
+    }
+
+    foreach ($pool in $appPools) {
+        $poolState = (Get-WebAppPoolState -Name $pool.Name -ErrorAction Stop).Value
+        $failureConfig = Get-WebConfiguration -PSPath 'MACHINE/WEBROOT/APPHOST' `
+            -Filter "system.applicationHost/applicationPools/add[@name='$($pool.Name)']/failure" -ErrorAction Stop
+        Write-Host "$($pool.Name): State=$poolState; RapidFailProtection=$($failureConfig.rapidFailProtection); Interval=$($failureConfig.rapidFailProtectionInterval); MaxCrashes=$($failureConfig.rapidFailProtectionMaxCrashes)"
+    }
+} catch {
+    Write-Host "Could not inspect application pools. Confirm IIS/WebAdministration is installed and the session is elevated. $($_.Exception.Message)" -ForegroundColor Yellow
+}
+
+Write-Host "`n--- Recent IIS System Events (last $lookbackHours hours) ---" -ForegroundColor Cyan
+$eventFilter = @{
+    LogName = 'System'
+    ProviderName = $iisProviders
+    Level = @(1, 2, 3)
+    StartTime = (Get-Date).AddHours(-$lookbackHours)
+}
+$events = Get-WinEvent -FilterHashtable $eventFilter -MaxEvents 50 -ErrorAction SilentlyContinue
+if ($events) {
+    $events | Select-Object -First 10 TimeCreated, ProviderName, Id, Message | Format-List
+} else {
+    Write-Host 'No matching warning or error events found in the selected time window.' -ForegroundColor Green
+}
+
+Write-Host "`n--- W3C HTTP Error Analysis (site ID $siteId) ---" -ForegroundColor Cyan
+$logDirectory = Join-Path $logRoot "W3SVC$siteId"
+$latestLog = Get-ChildItem -Path $logDirectory -Filter '*.log' -File -ErrorAction SilentlyContinue |
+    Sort-Object LastWriteTime -Descending |
+    Select-Object -First 1
+
+if (-not $latestLog) {
+    Write-Host "No W3C log files found in $logDirectory. Confirm the site ID and IIS logging path." -ForegroundColor Yellow
+} else {
+    $fieldsHeader = Get-Content -Path $latestLog.FullName -TotalCount 20 -ErrorAction SilentlyContinue |
+        Where-Object { $_ -match '^#Fields:' } |
+        Select-Object -Last 1
+
+    if (-not $fieldsHeader) {
+        Write-Host 'The latest log has no #Fields header in its first 20 lines; status fields cannot be mapped.' -ForegroundColor Yellow
+    } else {
+        $fields = ($fieldsHeader -replace '^#Fields:\s*', '') -split '\s+'
+        $statusIndex = [array]::IndexOf($fields, 'sc-status')
+        $win32StatusIndex = [array]::IndexOf($fields, 'sc-win32-status')
+        if ($statusIndex -lt 0 -or $win32StatusIndex -lt 0) {
+            Write-Host "This site's W3C log does not include both sc-status and sc-win32-status. Enable those fields in IIS logging to use this check." -ForegroundColor Yellow
+        } else {
+            $errorLines = Get-Content -Path $latestLog.FullName -Tail 5000 -ErrorAction SilentlyContinue |
+                Where-Object { $_ -and $_[0] -ne '#' } |
+                Where-Object {
+                    $columns = [regex]::Matches($_, '"[^"]*"|\S+') | ForEach-Object { $_.Value }
+                    if ($columns.Count -gt $statusIndex) {
+                        $statusCode = 0
+                        [int]::TryParse($columns[$statusIndex], [ref]$statusCode) -and $statusCode -ge 400 -and $statusCode -lt 600
+                    }
+                } |
+                Select-Object -Last 5
+
+            if ($errorLines) {
+                Write-Host "Last HTTP 4xx/5xx entries from $($latestLog.Name) (sc-win32-status is included in each row):" -ForegroundColor Yellow
+                $errorLines | ForEach-Object { Write-Host $_ }
+            } else {
+                Write-Host "No HTTP 4xx/5xx entries found in the last 5,000 data rows of $($latestLog.Name)." -ForegroundColor Green
+            }
+        }
+    }
+}
