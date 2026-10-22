@@ -87,22 +87,22 @@ To bypass automated link scanners, attackers host redirection scripts on trusted
 Understanding the full scope of email vulnerabilities requires examining three distinct operational perspectives:
 
 
-+ Perspective       + Core Philosophy         + Threat Identification Strategy    + Primary Vulnerability/ Blind Spot +
-|                   |                         |                                   |                                   |
-|A. Adversary/ Dark | "Work inside the rules; | Exploits high-reputation CSPs,    | Vulnerable to post-delivery       |
-|Web Community      | Instrument the protocols| OAuth consent grants (ConsetFix)  | behavioral graphing and visual    |
-|                   |                         | and Adversary-in-the-Middle (AiTM)| AI rendering                      |
-|                   |                         | kits (e.g., Evilginx).            |                                   |
-|                   |                         |                                   |                                   |
-|B. Enterprise      | "Headers prove origin,  | Utilizes Computer Vision (OCR),   | Prone to high false-positive rates|
-|Defender/ Vendor   | not intent."            | Natural Language Processing (NLP),| and significant licensing costs.  |
-|                   |                         | and Zero-Trust Relationship Graphs|                                   |
-|                   |                         |                                   |                                   |
-|C. Protocol/ System| "Protocols work;        | Enforces strict DMARC (p=reject), | Cannot evaluate semantic intent or|
-| Architect         |deployment and policy    | MTA-STS (RFC 8461), and TLS-RPT   | human social engineering once     |
-|                   |Enforcement fail."       | (RFC 8436) at the transport layer.| transport passes                  |
-|                   |                         |                                   |                                   |
-+ ----------------- + ----------------------- + --------------------------------- + --------------------------------- +
++ - Perspective --- + - Core Philosophy ----- + - Threat Identification Strategy - + - Primary Vulnerability/ Blind Spot - +
+|                   |                         |                                    |                                       |
+|A. Adversary/ Dark | "Work inside the rules; | Exploits high-reputation CSPs,     | Vulnerable to post-delivery           |
+|Web Community      | Instrument the protocols| OAuth consent grants (ConsetFix)   | behavioral graphing and visual AI     |
+|                   |                         | and Adversary-in-the-Middle (AiTM) | rendering                             |
+|                   |                         | kits (e.g., Evilginx).             |                                       |
+|                   |                         |                                    |                                       |
+|B. Enterprise      | "Headers prove origin,  | Utilizes Computer Vision (OCR),    | Prone to high false-positive rates and|
+|Defender/ Vendor   | not intent."            | Natural Language Processing (NLP), | significant licensing costs.          |
+|                   |                         | and Zero-Trust Relationship Graphs |                                       |
+|                   |                         |                                    |                                       |
+|C. Protocol/ System| "Protocols work;        | Enforces strict DMARC (p=reject),  | Cannot evaluate semantic intent or    |
+| Architect         |deployment and policy    | MTA-STS (RFC 8461), and TLS-RPT    | human social engineering once         |
+|                   |Enforcement fail."       | (RFC 8436) at the transport layer. | transport passes.                     |
+|                   |                         |                                    |                                       |
++ ----------------- + ----------------------- + ---------------------------------- + ------------------------------------- +
 
 Synthesized Insight
 Attackers do not break email protocols; they instrument them. The critical vulnerability in contemporary enterprise security lies in the operational gap between pre-delivery validation and post-click execution time.
@@ -128,10 +128,11 @@ THE SECURITY BASELINE EVOLUTION
       PAST: Unencrypted Web               PRESENT/FUTURE: Mandatory Trust
  ┌──────────────────────────────┐        ┌──────────────────────────────┐
  ┌ HTTP Plaintext Standard      │        │ HTTPS Default Standard       │
- │ Browsers accept all traffic  │  ───►  │ Chrome/Firefox "Not Secure"  │
+ │ Browsers accept all traffic  │  ── ►  │ Chrome/Firefox "Not Secure"  │
  │ Opportunistic security       │        │ Free automated SSL (Let's    │
  └──────────────────────────────┘        │ Encrypt)                     │
                                          └──────────────────────────────┘
+
 1.	Client-Side Visual Enforcement: Browsers did not just standardize HTTPS in RFCs; they changed the user experience by displaying explicit "Not Secure" warnings on HTTP sites.
 2.	Zero-Cost Automation: Initiatives like Let's Encrypt removed financial and technical friction.
 3.	Application to Email: Mail clients (Gmail, Outlook, Apple Mail) must adopt a similar visual model. Emails from senders lacking strict DMARC/MTA-STS enforcement or containing unverified cloud-redirect links should be explicitly badged with prominent warning banners and isolated link execution.
