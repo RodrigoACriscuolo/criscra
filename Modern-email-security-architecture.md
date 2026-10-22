@@ -26,6 +26,7 @@ The primary failure mode of contemporary Secure Email Gateways (SEGs) is the con
 ### 2.1 Protocol Alignment vs. Semantic Reality
 Consider an incoming message header evaluation under standard RFC specifications:
 
+```text
 [ Incoming Message Ingress ]
             │
             ├── Return-Path: info@legalprime.fr ─────► SPF Check ──────► PASS (Permitted Sender IP)
@@ -44,6 +45,7 @@ To a strict RFC-compliant gateway, this email represents 100% legitimate, authen
 ### 2.2 CSP Reputation Hijacking & Time-of-Check Evasion
 To bypass automated link scanners, attackers host redirection scripts on trusted public cloud infrastructure (e.g., storage.googleapis.com, s3.amazonaws.com, blob.core.windows.net).
 
+```text
 +-----------------------------------------------------------------------------------+
 |                            PHASE 1: INGRESS EVALUATION                            |
 |                                                                                   |
