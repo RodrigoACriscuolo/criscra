@@ -1,10 +1,11 @@
 # Modern Email Security Architecture
-
+'''text
 Author: Rodrigo Aurélio Criscuolo
 Collaborator & Technical Reviewer: Gemini (Google AI)
 Target Repository: GitHub / Open Source Security Research
 Document Status: Technical Whitepaper
 Date: October 2026
+'''
 
 Structural Vulnerabilities in Modern Email Security Architecture: The "Authenticated Abuse" Vector, Protocol Enforcement Gaps, and the Path Toward Standardization
 
