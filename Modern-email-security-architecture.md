@@ -137,24 +137,25 @@ THE SECURITY BASELINE EVOLUTION
  │ Opportunistic security       │        │ Free automated SSL (Let's    │
  └──────────────────────────────┘        │ Encrypt)                     │
                                          └──────────────────────────────┘
-```
-
 1.	Client-Side Visual Enforcement: Browsers did not just standardize HTTPS in RFCs; they changed the user experience by displaying explicit "Not Secure" warnings on HTTP sites.
 2.	Zero-Cost Automation: Initiatives like Let's Encrypt removed financial and technical friction.
 3.	Application to Email: Mail clients (Gmail, Outlook, Apple Mail) must adopt a similar visual model. Emails from senders lacking strict DMARC/MTA-STS enforcement or containing unverified cloud-redirect links should be explicitly badged with prominent warning banners and isolated link execution.
 
 Core Axiom: The primary goal of security standardization is not 100% perfection; it is dramatically raising the operational cost of an attack.
+```
 
 ## 6. Practical Recommendations & Advice for Enterprise IT Teams
+```text
 To move from passive defense to an active security posture, IT administrators and infrastructure engineers should consider the following actionable steps:
 1.	Do Not Trust Authentication Alone: Treat SPF/DKIM/DMARC passes as mere admission tickets to the boundary, not proof that the content is safe.
 2.	Implement In-Client Visual Banners: Use native mail gateway rules to append [EXTERNAL SENDER] banners and explicit warning notices when external messages contain raw cloud storage links (storage.googleapis.com, s3.amazonaws.com).
 3.	Adopt Remote Browser Isolation (RBI) or Link Sanitization: Where available, route clicks from unestablished external domains through isolated cloud containers to strip client-side execution vectors.
 4.	Drive Internal DMARC Compliance: Work systematically to move all managed organizational domains from p=none to p=reject.
 5.	Engage in the Open Standards Community: Participate in IETF working groups (such as dmarc) and industry anti-abuse forums to advocate for enforcement-first standards.
-
+```
 ## 7. References & Academic Frameworks
 1.	IETF RFC Standards:
+```text
 ○	RFC 5321: Simple Mail Transfer Protocol (SMTP). https://datatracker.ietf.org/doc/html/rfc5321
 ○	RFC 6376: DomainKeys Identified Mail (DKIM) Signatures. https://datatracker.ietf.org/doc/html/rfc6376
 ○	RFC 7208: Sender Policy Framework (SPF) for Authorizing Use of Domains. https://datatracker.ietf.org/doc/html/rfc7208
@@ -162,11 +163,14 @@ To move from passive defense to an active security posture, IT administrators an
 ○	RFC 8461: SMTP MTA Strict Transport Security (MTA-STS). https://datatracker.ietf.org/doc/html/rfc8461
 ○	RFC 8436: SMTP TLS Reporting (TLS-RPT). https://datatracker.ietf.org/doc/html/rfc8436
 ○	RFC 8617: The Authenticated Received Chain (ARC) Protocol. https://datatracker.ietf.org/doc/html/rfc8617
+```
 2.	Industry Research & Organizations:
+```text
 ○	Messaging, Malware and Mobile Anti-Abuse Working Group (M3AAWG): Best Practices for Email Authentication. https://www.m3aawg.org/
 ○	Cyber Threat Alliance & Dark Web Threat Intelligence Frameworks (Adversary-in-the-Middle and OAuth Exploitation Mechanics).
 ○	Let's Encrypt / Internet Security Research Group (ISRG) PKI Automation Models. https://letsencrypt.org/
 ○	CISA (Cybersecurity and Infrastructure Security Agency): Enhancing Email Security & Binding Operational Directives. https://www.cisa.gov/
+```
 
 *** Note on Synthesis & Acknowledgments ***
 This whitepaper was synthesized from an interactive, technical dialogue between Rodrigo Aurélio Criscuolo and Gemini (Google AI). The goal of this collaborative effort is to refine technical concepts, document modern attack surface vectors, and promote constructive debate around email infrastructure standardization between enterprise IT professionals and hyper-scale service providers.
