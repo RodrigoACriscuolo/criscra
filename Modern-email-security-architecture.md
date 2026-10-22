@@ -172,5 +172,6 @@ To move from passive defense to an active security posture, IT administrators an
 ○	CISA (Cybersecurity and Infrastructure Security Agency): Enhancing Email Security & Binding Operational Directives. https://www.cisa.gov/
 ```
 
-*** Note on Synthesis & Acknowledgments ***
-This whitepaper was synthesized from an interactive, technical dialogue between Rodrigo Aurélio Criscuolo and Gemini (Google AI). The goal of this collaborative effort is to refine technical concepts, document modern attack surface vectors, and promote constructive debate around email infrastructure standardization between enterprise IT professionals and hyper-scale service providers.
+### Note on Synthesis & Acknowledgments
+This whitepaper was synthesized from an interactive, technical dialogue between Rodrigo Aurélio Criscuolo and Gemini (Google AI). 
+The goal of this collaborative effort is to refine technical concepts, document modern attack surface vectors, and promote constructive debate around email infrastructure standardization between enterprise IT professionals and hyper-scale service providers.
