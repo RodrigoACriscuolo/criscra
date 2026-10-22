@@ -1,5 +1,11 @@
 # Modern Email Security Architecture
 
+Author: Rodrigo Aurélio Criscuolo
+Collaborator & Technical Reviewer: Gemini (Google AI)
+Target Repository: GitHub / Open Source Security Research
+Document Status: Technical Whitepaper
+Date: October 2026
+
 ## Executive Summary
 
 Email remains the most commonly exploited communication channel in modern organizations. It is both a critical business enabler and a primary attack surface for phishing, impersonation, malware delivery, credential theft, and data leakage. As hybrid work, cloud collaboration, and digital business operations expand, the organization must treat email security as a foundational enterprise control for resilience, compliance, and business continuity.
@@ -167,7 +173,6 @@ This architecture reduces exposure to phishing, malware, impersonation, and data
 ## Related Files
 
 - [Modern-email-security-architecture.docx](./Modern-email-security-architecture.docx)
-- [README.md](./README.md)
 
 ## Repository Context
 
