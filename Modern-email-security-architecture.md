@@ -32,7 +32,7 @@ Consider an incoming message header evaluation under standard RFC specifications
             ├── Return-Path: info@legalprime.fr ─────► SPF Check ──────► PASS (Permitted Sender IP)
             ├── Header-From: pastintel.org.uk   ─────► DKIM Signature ──► PASS (s=selector1; d=pastintel.org.uk)
             └── Alignment Check                 ─────► DMARC Policy   ──► PASS (p=REJECT / p=NONE)
-
+```
 In this scenario:
 DKIM Signature Integrity: The message body and core headers are cryptographically signed using a valid private key associated with an attacker-controlled domain (pastintel.org.uk).
 
@@ -80,6 +80,7 @@ To bypass automated link scanners, attackers host redirection scripts on trusted
 |                                                        ▼                          |
 |                                              Malicious C2 Destination             |
 +-----------------------------------------------------------------------------------+
+```
 
 1. Reputation Hijacking: Security engines cannot globally block root domains like googleapis.com without breaking legitimate corporate workflows. The attacker’s payload inherits the high trust score of the cloud provider.
 
@@ -88,7 +89,7 @@ To bypass automated link scanners, attackers host redirection scripts on trusted
 ## 3. Analysis of Perspectives: Adversary, Vendor, and Protocol Architect
 Understanding the full scope of email vulnerabilities requires examining three distinct operational perspectives:
 
-
+```text
 + - Perspective --- + - Core Philosophy ----- + - Threat Identification Strategy - + - Primary Vulnerability/ Blind Spot - +
 |                   |                         |                                    |                                       |
 |A. Adversary/ Dark | "Work inside the rules; | Exploits high-reputation CSPs,     | Vulnerable to post-delivery           |
@@ -105,6 +106,7 @@ Understanding the full scope of email vulnerabilities requires examining three d
 |                   |Enforcement fail."       | (RFC 8436) at the transport layer. | transport passes.                     |
 |                   |                         |                                    |                                       |
 + ----------------- + ----------------------- + ---------------------------------- + ------------------------------------- +
+```
 
 Synthesized Insight
 Attackers do not break email protocols; they instrument them. The critical vulnerability in contemporary enterprise security lies in the operational gap between pre-delivery validation and post-click execution time.
@@ -127,6 +129,7 @@ However, the historical transition from HTTP to HTTPS provides a clear roadmap f
 
 THE SECURITY BASELINE EVOLUTION
 
+```text
       PAST: Unencrypted Web               PRESENT/FUTURE: Mandatory Trust
  ┌──────────────────────────────┐        ┌──────────────────────────────┐
  ┌ HTTP Plaintext Standard      │        │ HTTPS Default Standard       │
@@ -134,6 +137,7 @@ THE SECURITY BASELINE EVOLUTION
  │ Opportunistic security       │        │ Free automated SSL (Let's    │
  └──────────────────────────────┘        │ Encrypt)                     │
                                          └──────────────────────────────┘
+```
 
 1.	Client-Side Visual Enforcement: Browsers did not just standardize HTTPS in RFCs; they changed the user experience by displaying explicit "Not Secure" warnings on HTTP sites.
 2.	Zero-Cost Automation: Initiatives like Let's Encrypt removed financial and technical friction.
