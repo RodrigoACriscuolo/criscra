@@ -1,145 +1,425 @@
-Title: Documentation contributor for Microsoft Azure Virtual Machine (WVD) and VMware Virtual Machine (VDI)
-Description: The guide describes how user profile bloat is a critical driver of storage degradation and spiraling infrastructure costs.
-Author: Rodrigo Aurelio Criscuolo
-MS. Author: RodrigoACriscuolo
-MS. Date 09/09/2026
-MS. Topic: User profile storage on virtual machines is growing, creating a problem when the profile is synchronized with MS OneDrive.
+---
+title: OneDrive Profile Bloat Management for Azure Virtual Machines and VMware VDI
+description: Enterprise guidance for reducing OneDrive profile growth, optimizing storage in virtualized Windows environments, and controlling cost and security risk
+author: Rodrigo Aurelio Criscuolo
+date: 2026-09-09
+topic: OneDrive governance, profile management, Azure VMs, VMware VDI, enterprise storage optimization
+---
 
-### Summary
-In modern enterprise virtualized environments—specifically Azure Virtual Machines, and hybrid-joined VMware VDI - user profile bloat is a critical driver of storage degradation and spiraling infrastructure costs. By default, cloud synchronization engines like Microsoft OneDrive are optimized for dedicated physical endpoints, not multi-session or non-persistent virtual environments. Left unmanaged, OneDrive synchronization will rapidly expand user profile containers (VHDX /VMDK), leading to log on delays, disk exhaustion, and inflated cloud storage fees.
-This technical article outlines the architectural strategy and standard operation procedures (SOP) to systematically restrict, clean and compress OneDrive file footprints. This architecture establishes a dual-tier policy framework that balances operational velocity for internal engineering teams against rigorous cost containment and data exfiltration controls for external consulting workforces.
+# OneDrive Profile Bloat Management for Azure Virtual Machines and VMware VDI
 
-### 1. Architectural Architecture & Pillars
-To implement a stable, cost-effective virtualization layer, your engineering roadmap must pivot on core Microsoft best practices:
+## Overview
 
-## Pillar 1: Per-Machine Binary Decoupling
-The default consumer configuration installs OneDrive within the user's volatile local profile (%localappdata%\Microsoft\OneDrive). On multi-session. Moving the baseline installation to the system layer (C:\ProgramFiles) isolates the configuration state from executable storage, reducing baseline profile sizes.
+User profile bloat is an operational and financial issue in enterprise virtual desktop environments. In Azure Virtual Machines and VMware VDI, OneDrive can become a major contributor to local profile growth, storage inflation, and performance degradation when the sync client is allowed to retain unnecessary local state inside the user profile.
 
-## Pillar 2: Device-Centric Loopback Enforcement
-Targeting storage profiles to User Security Groups in Active Directory causes configuration drift when users transition between physical laptops and virtual. Utilizing Group Policy Object (GPO), Loopback Processing in Replace Mode applies policies directly to the Virtual Machine container (OU). This guarantees that strict virtualization constraints take precedence the moment a user initiates a remote session.
+This document describes the architectural strategy and standard operating procedure (SOP) for reducing OneDrive profile footprint in Windows multi-session environments. It is intended for IT administrators, desktop engineering teams, cloud operations teams, and identity/security administrators responsible for managing virtualized endpoints and Microsoft 365 workloads.
 
-## Pillar 3: Dynamic Sector Compaction
-Enforcing OneDrive "Files On-Demand" converts files into o-byte sparse file pointers. However, while cloud file dehydration flags space as unallocated within the virtual machine, the underlying Virtual Hard Disk (VHDX) file hosted on Azure Files or VMware vSAN remains bloated. Dynamic Sector compaction forces the profile attachment engine to reclaim unallocated blocks during user logoff.
+The recommended design is built on four core principles:
 
-## Fillar 4: Risk Isolation Boundaries
-Because external consultants present higher data security risks, the architecture enforces deep multi-tenant restrictions. Blocking synchronization with non-corporate tenants prevents unauthorized data exfiltration while maintaining single sign-on (SSO) continuity via Microsoft Entra ID.
+- Per-machine deployment of OneDrive to remove the runtime from the volatile user profile
+- Policy-based control by user class, workload profile, and device context
+- Files On-Demand and dehydration controls to minimize local storage persistence
+- Security boundaries to block unmanaged external sync and protect corporate data
 
-### 2. Technical implementation Framework
-                   Active Directory / Entra ID
-                                    │
-                  ┌─────────────────┴─────────────────┐
-                  ▼                                   ▼
-        [OU: VMware_DevQA]                 [OU: Azure_Consultants]
-                  │                                   │
-       • Loopback: Replace                 • Loopback: Replace
-       • Files On-Demand: Flex             • Files On-Demand: Enforced
-       • Dehydration: 30 Days              • Dehydration: 3 Days
-       • Personal Sync: Allowed            • Personal Sync: Blocked
+> [!IMPORTANT]
+> This guidance is intended for enterprise deployment and should be validated against internal security policy, Microsoft 365 configuration, compliance standards, and change-management requirements before production rollout.
 
-## 2.1 Environmental Matrix
-Configuration must be tailored to the distinct operational profiles of each user segment:
-|Strategy Dimension       | VMware VDI (Prod/Dev/QA)                         | Azure Hybrid VMs (Consultants) 
-|Primary Workload         | High-throughput build/ test cycles.              | Documentation, testing and advisory. 
-|Files On-Demand          | Enabled (Permissive)                             | Enabled (Enforced)  
-|User Override            | Allowed (Enables caching for heavy code blocks). | Blocked (Zero-footprint enforcement). 
-|Storage Sense Trigger    | 30 Days (Prevents mid-sprint asset eviction).    | 3 Days (Aggressive Azure cost containment). 
-|Data Exfiltration Rules  | Internal Tenant Only                             | Internal Tenant Only + Personal Sync Blocked.
+---
 
-## 3. Standard Operation Procedure (SOP-INF...)
-## 3.1 Gold Image Initialization
-Execute these tasks during your automated image creation pipelines (e.g., Packer, Azure Image Builder, or MDT task sequences) before sealing the OS.
+## 1. Purpose
 
-Powershell
+The purpose of this document is to provide a repeatable, policy-driven approach to controlling OneDrive profile growth in Azure Virtual Machines and VMware VDI environments.
+
+The document supports the following objectives:
+
+- reduce local profile size and VHD/VHDX growth
+- lower storage cost and backup overhead
+- improve desktop performance and session consistency
+- apply role-based controls to align policy with business risk
+- protect corporate data from unmanaged sync behavior
+
+---
+
+## 2. Scope
+
+This guidance applies to:
+
+- Microsoft Windows virtual machines running in Azure
+- VMware VDI or Horizon-based desktop environments
+- enterprise multi-user and multi-session Windows desktops
+- Microsoft OneDrive for Business deployments
+- organizations using Active Directory and Entra ID for user and device policy management
+
+This document does not replace internal security review or endpoint architecture review. It should be used as an engineering baseline and adapted to match organizational standards.
+
+---
+
+## 3. Background and Problem Statement
+
+OneDrive is a highly capable collaboration platform, but it can create operational risk when it is treated as a user-local convenience rather than an enterprise-managed service.
+
+In virtualized Windows environments, the common architecture issue is that OneDrive is often installed in or associated with the user profile path, such as:
+
+```text
+%localappdata%\Microsoft\OneDrive
+```
+
+This creates a direct relationship between user activity, sync state, and local profile size. In enterprise environments with thousands of users, this causes a predictable pattern:
+
+- profile containers expand over time
+- stale files remain cached locally
+- cloud-backed content persists longer than needed
+- VHD/VHDX and profile storage grow faster than expected
+- recovery and backup operations become slower and more expensive
+
+The result is an operational problem that affects not only storage consumption but also performance, infrastructure planning, and overall cloud cost.
+
+---
+
+## 4. Design Principles
+
+The architecture described in this document follows four design principles.
+
+### 4.1 Per-Machine Binary Decoupling
+
+OneDrive should not remain tied to the user’s volatile profile. The runtime should be installed at the machine level so that the application lifecycle is not coupled to user session creation or profile persistence.
+
+This reduces:
+- per-user installation duplication
+- profile drift between sessions
+- higher storage use in transient desktops
+- inconsistent runtime behavior across pooled desktops
+
+### 4.2 Device-Context Policy Enforcement
+
+Policy should reflect the operating context. Developer desktops, contractor systems, and restricted user groups should not all receive identical OneDrive policy.
+
+A realistic enterprise model uses:
+
+- Active Directory security groups
+- organizational units (OUs)
+- device/user identity context
+- workload categorization
+
+This provides better alignment between business risk, productivity needs, and storage goals.
+
+### 4.3 Files On-Demand and Dehydration
+
+Files On-Demand should be enabled as the default state for synchronized enterprise content. This reduces the amount of data retained locally while keeping files transparent to the user.
+
+Storage Sense and cloud-content dehydration should be configured to release stale local data based on policy thresholds. This is particularly effective in virtualized environments where the profile is ephemeral or commonly refreshed.
+
+### 4.4 Security Boundaries and Data Protection
+
+Multi-tenant, contractor, consultant, and external-user scenarios should include explicit restrictions on account type and sync scope. This helps prevent unauthorized data movement and protects corporate content.
+
+This should include:
+- blocking personal Microsoft accounts in restricted contexts
+- limiting sync to corporate tenant boundaries
+- preventing unmanaged local persistence
+- reducing the risk of data leakage through endpoint sync behavior
+
+---
+
+## 5. Recommended Architecture
+
+The recommended architecture separates desktop classes by operational profile and risk posture.
+
+```text
+                     Active Directory / Entra ID
+                                  │
+                    ┌─────────┴──────────┐
+                    ▼                    ▼
+       [OU: VMware_DevQA]     [OU: Azure_Consultants]
+                    │                    │
+       • Loopback: Replace     • Loopback: Replace
+       • Files On-Demand: Yes  • Files On-Demand: Yes
+       • Storage Sense: 30d     • Storage Sense: 3d
+       • User override: Yes     • User override: No
+       • Personal sync: Yes    • Personal sync: No
+```
+
+This pattern is a practical example of workload-aware policy design. It acknowledges that not all endpoint classes should receive the same storage and security posture.
+
+---
+
+## 6. Environmental Matrix
+
+The following matrix is a recommended default model for enterprise workloads.
+
+| Strategy Dimension | VMware VDI (Prod / Dev / QA) | Azure Hybrid VMs (Consultants / Restricted Users) |
+|---|---|---|
+| Primary Workload | Software build, validation, QA, engineering tasks | Documentation, testing, advisory, support work |
+| Files On-Demand | Enabled | Enabled |
+| User Override | Allowed for approved groups | Blocked |
+| Storage Sense Trigger | 30 days | 3 days |
+| Personal Sync | Allowed, if permitted by policy | Blocked |
+| Tenant Boundary | Internal tenant only | Internal tenant only + personal sync disabled |
+| Storage Goal | Productivity + moderate cost control | Aggressive cost containment and risk reduction |
+
+This is not intended as a universal standard. It should be used as a baseline and adjusted to align with business policy and operational requirements.
+
+---
+
+## 7. Standard Operating Procedure (SOP)
+
+## 7.1 Gold Image Initialization
+
+The environment should be initialized in the master image or build pipeline before the desktop image is sealed and distributed. This ensures that OneDrive is installed as a machine-level component and that policy defaults are already aligned.
+
+### PowerShell: Machine-Level Installation
+
+```powershell
 <#
 .SYNOPSIS
-    SOP Step: Automated Per-Machine OneDrive Installation
+    SOP Step: Automated OneDrive installation at the machine level
 #>
+
 $ErrorActionPreference = "Stop"
-# Terminate active runtime instances
+
+# Stop active runtime instances
 Stop-Process -Name "OneDrive" -Force -ErrorAction SilentlyContinue
-# Eradicate legacy per-user setups to clear execution space
-$UserSetup = "$env:LocalAppData\Microsoft\OneDrive\OneDriveSetup.exe"if (Test-Path $UserSetup) {
+
+# Remove legacy per-user installation if present
+$UserSetup = "$env:LocalAppData\Microsoft\OneDrive\OneDriveSetup.exe"
+if (Test-Path $UserSetup) {
     Start-Process -FilePath $UserSetup -ArgumentList "/uninstall" -Wait -NoNewWindow
 }
-# Pull down the verified corporate deployment package
+
+# Download the approved corporate package from the internal distribution point
 $InstallerPath = "$env:TEMP\OneDriveSetup.exe"
-Invoke-WebRequest -Uri "https://microsoft.com" -OutFile $InstallerPath
-# Execute system-wide installation
-$InstallResult = Start-Process -FilePath $InstallerPath -ArgumentList "/allusers", "/silent" -Wait -Passthruif ($InstallResult.ExitCode -ne 0) { throw "Installation failure with code $($InstallResult.ExitCode)" }
+Invoke-WebRequest -Uri "https://your-internal-distribution.example/OneDriveSetup.exe" -OutFile $InstallerPath
 
-## 3.2 Compaction Engine Stamping
-To ensure that profile containers shrink when files are unlinked, the native compaction engine must be stamped directly into the registry of the master image.
+# Install for all users
+$InstallResult = Start-Process -FilePath $InstallerPath -ArgumentList "/allusers", "/silent" -Wait -PassThru
+if ($InstallResult.ExitCode -ne 0) {
+    throw "OneDrive installation failed with exit code $($InstallResult.ExitCode)"
+}
+```
 
-Powershell
+### Expected Outcome
+
+The runtime should be installed under the system-level path:
+
+```text
+C:\Program Files\Microsoft OneDrive\
+```
+
+rather than under the local user profile.
+
+> [!NOTE]
+> Use an approved internal distribution source only. Do not deploy from arbitrary public URLs or unsecured download paths.
+
+---
+
+## 7.2 Profile Storage Optimization
+
+Where FSLogix is used to manage profile containers, storage compaction should be enabled as a secondary optimization control.
+
+### PowerShell: FSLogix Compaction Setting
+
+```powershell
 <#
 .SYNOPSIS
-    SOP Step: FSLogix Storage Engine Optimization
+    SOP Step: Enable FSLogix VHD compaction support
 #>
-$FSLogixPath = "HKLM:\SOFTWARE\FSLogix\Apps"if (-not (Test-Path $FSLogixPath)) { New-Item -Path $FSLogixPath -Force | Out-Null }
-# Enable continuous background sector shrinking on logoff
+
+$FSLogixPath = "HKLM:\SOFTWARE\FSLogix\Apps"
+
+if (-not (Test-Path $FSLogixPath)) {
+    New-Item -Path $FSLogixPath -Force | Out-Null
+}
+
 Set-ItemProperty -Path $FSLogixPath -Name "VHDCompactDisk" -Value 1 -PropertyType DWord -Force
+```
 
-## 3.3 Active Directory Policy Deployments
+This step supports the reduction of stale or fragmented profile content but should not be treated as a replacement for OneDrive policy enforcement.
 
-# GPO 1: Developers & Quality Assurance (GPO-COMP-VDI-OneDrive-DevQA)
-Link this object strictly to the Organizational Unit holding the VMware compute resource objects.
+---
 
-Loopback Processing: Computer Configuration > Policies > Administrative Templates > System > Group Policy
-Setting: 
-Configure user Group Policy Loopback Processing mode ➔ Enabled (Replace)
+## 7.3 Group Policy Deployment
 
-* Storage Optimization: Computer Configuration > Policies > Administrative Templates > Windows Components > OneDrive
-Setting: Use OneDrive Files On-Demand ➔ Enabled
-Setting: Prevent users from turning off Files On-Demand ➔ Disabled (Maintains developer velocity for local build targets)
+The following GPO patterns provide a practical model for enterprise deployment.
 
-* Automated Purging: Computer Configuration > Policies > Administrative Templates > System > Storage Sense
-Setting: Allow Storage Sense ➔ Enabled
-Setting: Configure Storage Sense Cloud Content dehydration ➔ Enabled (30 Days)
+### GPO 1: VMware VDI – Development and Quality Assurance
 
+Objective: maintain user productivity while reducing uncontrolled profile growth.
 
-# GPO 2: Azure Consultants (GPO-COM-AVM-OneDrive-Consultants)
-Link this object directly to the Organizational Unit housing the hybrid-joined Azure VMs.
+Recommended settings:
 
-* Loopback Processing: Set to Enabled (Replace) via the System Policy path.
-* Storage Hardening: Computer Configuration > Policies > Administrative Templates > Windows Components > OneDrive
-Setting: Use OneDrive Files On-Demand ➔ Enabled
-Setting: Prevent users from turning off Files On-Demand ➔ Enabled (Enforces cloud-only layout; blocks local persistence)
-Setting: Block syncing personal OneDrive accounts ➔ Enabled (Mitigates intellectual property leakage risks)
+- Computer Configuration > Administrative Templates > System > Group Policy
+  - Configure user Group Policy loopback processing mode: Enabled (Replace)
 
-* Aggressive Purging: Computer Configuration > Policies > Administrative Templates > System > Storage Sense
-Setting: Allow Storage Sense ➔ Enabled
-Setting: Configure Storage Sense Cloud Content dehydration ➔ Enabled (3 Days)
+- Computer Configuration > Administrative Templates > Windows Components > OneDrive
+  - Use OneDrive Files On-Demand: Enabled
+  - Prevent users from turning off Files On-Demand: Disabled
 
-* Identity Automation: User Configuration > Policies > Administrative Templates > Windows Components > OneDrive
-Setting: Silently sign in users to OneDrive sync app with their Windows credentials ➔ Enabled (Leverages Entra ID PRT / Kerberos for invisible authentication matches)
+- Computer Configuration > Administrative Templates > System > Storage Sense
+  - Allow Storage Sense: Enabled
+  - Configure Storage Sense cloud content dehydration: Enabled (30 days)
 
-* Loopback Processing: Computer Configuration > Policies > Administrative Templates > System > Group Policy
-Setting: Configure user Group Policy Loopback Processing mode ➔ Enabled (Replace)
+This is a balanced policy set for users whose workflows may require access to large local content during software development or validation.
 
-* Storage Optimization: Computer Configuration > Policies > Administrative Templates > Windows Components > OneDrive
-Setting: Use OneDrive Files On-Demand ➔ Enabled
-Setting: Prevent users from turning off Files On-Demand ➔ Disabled (Maintains developer velocity for local build targets)
+### GPO 2: Azure Hybrid VMs – Consultants and Restricted Users
 
-Automated Purging: Computer Configuration > Policies > Administrative Templates > System > Storage Sense
-Setting: Allow Storage Sense ➔ Enabled
-Setting: Configure Storage Sense Cloud Content dehydration ➔ Enabled (30 Days)
+Objective: minimize local persistence, reduce footprint, and enforce stricter security boundaries.
 
-## 4. Verification & Validation Protocol
-Before promoting the newly deployed GPOs to production, Infrastructure engineers must execute the following validation matrix on a canary node:
-1. Policy attainment test: Run gpresult /h gpreport.html from an elevated prompt. Verify that loopback processing matches the correct OU context and overrides standard user objects.
-2. Binary Execution Verification: Open task Manager during an active user session. Verify that the running path for OneDrive.exe maps to C:\Program Files\Microsoft OneDrive\ and not the user's AppData directory.
-3. Dehydration Constraint Test (Consultant Only): Access the synced OneDrive folder, right-click an item, and confirm that the choice "Always keep on this device" is greyed out or structurally missing from the context menu.
-4. Security Boundaries Verification: Attempt to authenticate using an external Microsoft account (@outlook.com). The synchronization broker must immediately reject the handshake and throw an administrative block alert.
+Recommended settings:
 
-## 5. Architectural References & Technical Standards
-This architecture guide aligns directly with official enterprise documentation frameworks and deployment methodologies. For deep architectural dives, refer to foundation guidance:
-* Microsoft Azure Well-Architected Framework: Optimization recommendations for cost management and storage efficiency within Azure Virtual Desktop (AVD) environments.
-* Microsoft Learn Virtualization Engineering: Standards for deploying OneDrive per-machine instances (/allusers) across enterprise multi-session environments.
-* FSLogix Container Guidance: Architecture benchmarks detailing VHDX structural growth behavior and the implementation constraints of the VHDCompactDisk engine.
+- Computer Configuration > Administrative Templates > System > Group Policy
+  - Configure user Group Policy loopback processing mode: Enabled (Replace)
 
+- Computer Configuration > Administrative Templates > Windows Components > OneDrive
+  - Use OneDrive Files On-Demand: Enabled
+  - Prevent users from turning off Files On-Demand: Enabled
+  - Block syncing personal OneDrive accounts: Enabled
 
-### Research reference
-https://techcommunity.microsoft.com/discussions/agent-365-discussions/fslogix-profile-analyzer-%E2%80%93-identify-bloated-profiles-and-get-actionable-recommen/4544227
-https://github.com/ZoeyABT/FSLogixProfileReport
-https://techresolve.blog/2026/03/09/max-user-profiles-disable/
-https://learn.microsoft.com/en-us/answers/questions/1377673/best-practices-for-group-policy-in-active-director
+- Computer Configuration > Administrative Templates > System > Storage Sense
+  - Allow Storage Sense: Enabled
+  - Configure Storage Sense cloud content dehydration: Enabled (3 days)
+
+- User Configuration > Administrative Templates > Windows Components > OneDrive
+  - Silently sign in users to OneDrive with their Windows credentials: Enabled
+
+This policy set is appropriate for high-risk or tightly controlled user classes where footprint and governance matter more than local file availability.
+
+> [!CAUTION]
+> A single policy baseline should not be used for every user group. Developer, business, and consultant environments have different operational risk profiles.
+
+---
+
+## 8. Validation and Acceptance Criteria
+
+Before production rollout, the policy model should be validated on canary hosts or a pilot OU.
+
+### 8.1 Policy Attainment
+
+Run:
+
+```powershell
+gpresult /h C:\Temp\gpreport.html
+```
+
+Validate that:
+
+- the correct OU and loopback policy are applied
+- the target policy matches the intended user group
+- the device is receiving the expected OneDrive policy set
+
+### 8.2 Runtime Validation
+
+Confirm that the active OneDrive process resolves to:
+
+```text
+C:\Program Files\Microsoft OneDrive\
+```
+
+and not a user-profile path.
+
+### 8.3 Files On-Demand Validation
+
+For restricted classes:
+
+- confirm that “Always keep on this device” is either unavailable or intentionally not exposed
+- verify cloud-only file behavior is active
+- confirm that local persistence is not exceeding the approved design
+
+### 8.4 Security Boundary Validation
+
+Test that:
+
+- personal Microsoft accounts are blocked for restricted classes
+- only internal enterprise tenant access is permitted
+- sync boundaries are enforced according to organizational policy
+
+### 8.5 Storage Consumption Validation
+
+Measure before and after rollout:
+
+- local profile size
+- VHD/VHDX or profile container size
+- storage usage by OU or user group
+- login/logoff behavior
+- backup and restore burden
+
+Only accept the change when the result matches the expected enterprise design.
+
+---
+
+## 9. Operational Standards
+
+The following standards should be retained as ongoing practice.
+
+- OneDrive should be managed at the machine level within the standard image
+- Policy should be driven by security group and OU assignment, not by manual endpoint changes
+- Files On-Demand should be the default operating model for virtualized environments
+- Dehydration thresholds must be tuned to workload type and business use case
+- Storage growth should be reviewed periodically by desktop pool, OU, and user class
+- Rollback procedures must be documented for GPO and image changes
+- Changes affecting endpoint sync behavior should be subject to change control
+
+---
+
+## 10. Risk Considerations
+
+### 10.1 User Experience Impact
+
+Tighter storage controls may limit local file availability for users with high-throughput or large-file workflows. This is expected and should be handled through role-based policy assignment.
+
+### 10.2 Security vs Convenience
+
+Blocking personal sync and limiting local persistence provides stronger governance and lower data exposure, but may be seen as restrictive. In enterprise environments, this is a valid trade-off.
+
+### 10.3 Policy Drift
+
+Misapplied or stale GPOs can cause drift between desktop classes. This is a configuration management issue and should be treated as a support and governance concern, not a user-profile anomaly.
+
+---
+
+## 11. Recommendation
+
+The recommended enterprise design is a tiered policy model:
+
+- Tier 1: business and general users with balanced storage control and productivity
+- Tier 2: developer/QA users with more flexible local caching
+- Tier 3: consultant/restricted users with strict sync boundaries and minimal local persistence
+
+This approach produces the best balance between storage efficiency, productivity, risk control, and operational maintainability.
+
+---
+
+## 12. Conclusion
+
+OneDrive profile bloat is not merely a desktop hygiene issue. It is a storage, performance, and governance problem affecting enterprise virtualized environments.
+
+The most effective way to manage this is not to disable OneDrive, but to manage it as a controlled enterprise workload. The proper architecture is:
+
+- system-level installation
+- policy-based enforcement by user class
+- Files On-Demand as the default
+- storage dehydration as the retention control
+- security boundaries for restricted user groups
+
+When implemented correctly, this model reduces local footprint, stabilizes profile growth, lowers cloud storage cost, and improves the reliability of Azure Virtual Machines and VMware VDI environments.
+
+---
+
+## 13. References
+
+The following sources provide supporting guidance and background:
+
+- Microsoft Learn – OneDrive Files On-Demand
+- Microsoft Learn – Enterprise OneDrive and Group Policy guidance
+- Microsoft Azure Well-Architected Framework – Cost optimization and storage performance
+- Microsoft FSLogix documentation – profile containers and VHDX behavior
+- TechCommunity – FSLogix Profile Analyzer guidance
+- GitHub project: FSLogixProfileReport
+- Microsoft Q&A – Best practices for Group Policy in Active Directory
+- TechResolve blog – profile optimization and VDI storage reduction
+
+### Research References
+
+- https://techcommunity.microsoft.com/discussions/agent-365-discussions/fslogix-profile-analyzer-%E2%80%93-identify-bloated-profiles-and-get-actionable-recommen/4544227
+- https://github.com/ZoeyABT/FSLogixProfileReport
+- https://techresolve.blog/2026/03/09/max-user-profiles-disable/
+- https://learn.microsoft.com/en-us/answers/questions/1377673/best-practices-for-group-policy-in-active-director
