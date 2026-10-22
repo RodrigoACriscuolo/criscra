@@ -39,7 +39,6 @@
 Documenting SOPs, architecture blueprints, and real-world troubleshooting guides for daily infrastructure and CloudOps practice.
 
 - [Modern Email Security Architecture](./Modern-email-security-architecture.md)
-- [Modern-email-security-architecture.docx](./Modern-email-security-architecture.docx)
 
 ---
 
