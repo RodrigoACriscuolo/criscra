@@ -147,15 +147,17 @@ This pattern is a practical example of workload-aware policy design. It acknowle
 
 The following matrix is a recommended default model for enterprise workloads.
 
-| Strategy Dimension | VMware VDI (Prod / Dev / QA) | Azure Hybrid VMs (Consultants / Restricted Users) |
-|---|---|---|
-| Primary Workload | Software build, validation, QA, engineering tasks | Documentation, testing, advisory, support work |
-| Files On-Demand | Enabled | Enabled |
-| User Override | Allowed for approved groups | Blocked |
-| Storage Sense Trigger | 30 days | 3 days |
-| Personal Sync | Allowed, if permitted by policy | Blocked |
-| Tenant Boundary | Internal tenant only | Internal tenant only + personal sync disabled |
-| Storage Goal | Productivity + moderate cost control | Aggressive cost containment and risk reduction |
+```text
+| Strategy Dimension    | VMware VDI (Prod / Dev / QA)                      | Azure Hybrid VMs (Consultants / Restricted Users) |
+|   ---                 |           ---                                     |                       ---                         |
+| Primary Workload      | Software build, validation, QA, engineering tasks | Documentation, testing, advisory, support work    |
+| Files On-Demand       | Enabled                                           | Enabled                                           |
+| User Override         | Allowed for approved groups                       | Blocked                                           |
+| Storage Sense Trigger | 30 days                                           | 3 days                                            |
+| Personal Sync         | Allowed, if permitted by policy                   | Blocked                                           |
+| Tenant Boundary       | Internal tenant only                              | Internal tenant only + personal sync disabled     |
+| Storage Goal          | Productivity + moderate cost control              | Aggressive cost containment and risk reduction    |
+```
 
 This is not intended as a universal standard. It should be used as a baseline and adjusted to align with business policy and operational requirements.
 
