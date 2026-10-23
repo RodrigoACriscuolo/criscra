@@ -170,12 +170,17 @@ _______________________________________________________________________________
 
 Example: governance validation script (PowerShell skeleton)
 # Connect
+´´´text
 Connect-AzAccount
+´´´
 
 # 1. Get all VMs
+´´´text
 $vms = Get-AzVM
+´´´
 
 # 2. For each VM, validate key controls
+´´´text
 $report = foreach ($vm in $vms) {
     $nics = Get-AzNetworkInterface -ResourceGroupName $vm.ResourceGroupName |
             Where-Object { $_.VirtualMachine.Id -eq $vm.Id }
@@ -192,11 +197,13 @@ $report = foreach ($vm in $vms) {
         HasPublicIP       = ($nics.IpConfigurations.PublicIpAddress -ne $null)
     }
 }
+´´´
 
 # 3. Export quarterly report
+´´´text
 $timestamp = Get-Date -Format "yyyyMMdd"
 $report | Export-Csv -Path "vm-governance-report-$timestamp.csv" -NoTypeInformation
-
+´´´
 _______________________________________________________________________________
 
 Example: Azure Policy + alerts as code
@@ -218,7 +225,7 @@ _______________________________________________________________________________
 
 Policy and alerts as code
 Bicep – require NSG on NIC and disk encryption, plus a basic alert
-
+´´´text
 @description('Log Analytics workspace ID')
 param logAnalyticsWorkspaceId string
 
@@ -342,11 +349,11 @@ resource alertPublicIp 'Microsoft.Insights/metricAlerts@2023-01-01' = {
     ]
   }
 }
-
+´´´
 _______________________________________________________________________________
 
 Terraform – policy assignment and alert skeleton
-
+´´´text
 provider "azurerm" {
   features {}
 }
@@ -422,5 +429,131 @@ resource "azurerm_monitor_metric_alert" "vm_public_ip_alert" {
     action_group_id = azurerm_monitor_action_group.vm_governance.id
   }
 }
-
+´´´
 _______________________________________________________________________________
+
+Identity Checks
+(PowerShell) Check: VM has no local admin accounts
+´´´text
+Get-LocalUser | Where-Object { $_.Enabled -eq $true -and $_.Name -ne "Administrator" }
+´´´
+
+(PowerShell) Check: VM uses Entra ID login
+´´´text
+az vm show -g <RG> -n <VM> --query "securityProfile.enableVtpm"
+´´´
+
+(PowerShell) Check: Managed Identity is enabled
+´´´text
+az vm show -g <RG> -n <VM> --query "identity"
+´´´
+_______________________________________________________________________________
+Network Checks
+
+(PowerShell) Check: NIC has NSG
+´´´text
+$nsg = $nic.NetworkSecurityGroup
+if (-not $nsg) { "NIC missing NSG" }
+´´´
+(Bash) Check: Subnet has NSG
+´´´text
+az network vnet subnet show -g <RG> --vnet-name <VNET> -n <SUBNET> --query "networkSecurityGroup"
+´´´
+
+(Bash) Check: VM has no public IP
+´´´text
+az network nic show -g <RG> -n <NIC> --query "ipConfigurations[].publicIpAddress"
+´´´
+
+(Bash) Check: UDR forces traffic through firewall
+´´´text
+az network route-table route list -g <RG> --route-table-name <RT>
+´´´
+_______________________________________________________________________________
+Encryption Checks
+Check: Disk encryption enabled
+´´´text
+az disk show -g <RG> -n <DISK> --query "encryption.type"
+´´´
+_______________________________________________________________________________
+Logging Checks
+Check: NSG Flow Logs enabled
+´´´text
+az network watcher flow-log show --resource-group <RG> --name <NW>
+´´´
+
+Check: VM Insights enabled
+´´´text
+Get-AzVMExtension -ResourceGroupName <RG> -VMName <VM> | Where-Object { $_.Name -like "*AzureMonitor*" }
+´´´
+_______________________________________________________________________________
+Noise Reduction Techniques
+
+Only flag violations, not compliant resources
+Instead of dumping all VM data, only output findings:
+PowerShell
+´´´text
+if ($vmHasIssue) {
+    [PSCustomObject]@{
+        VMName = $vm.Name
+        Issue  = $issueDescription
+    }
+}
+´´´
+
+Suppress “expected” warnings
+If the environment intentionally allows:
+* Public IPs for jumpboxes
+* Specific extensions
+* Specific firewall bypasses
+Add an allow‑list:
+PowerShell
+´´´text
+$allowedVMs = @("jumpbox01", "bastion01")
+if ($allowedVMs -contains $vm.Name) { continue }
+´´´
+
+Add severity levels
+PowerShell
+´´´text
+[PSCustomObject]@{
+    VMName   = $vm.Name
+    Severity = "High"
+    Issue    = "Missing NSG"
+}
+´´´
+
+Add context to reduce false positives
+Example: NSG missing but subnet NSG exists → not a violation.
+PowerShell
+´´´text
+if (-not $nicNSG -and $subnetNSG) {
+    # Not a violation
+    continue
+}
+´´´
+_______________________________________________________________________________
+Improved Terraform/Bicep Patterns
+Use parameterized policy assignments
+bicep
+´´´text
+param policyName string
+param scope string
+
+resource assign 'Microsoft.Authorization/policyAssignments@2023-03-01' = {
+  name: policyName
+  properties: {
+    scope: scope
+    policyDefinitionId: policyDefinition.id
+  }
+}
+´´´
+
+Use Terraform modules
+hcl
+´´´text
+module "vm_governance" {
+  source = "./modules/vm-governance"
+  scope  = var.scope
+}
+´´´
