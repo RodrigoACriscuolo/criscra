@@ -1,192 +1,325 @@
-Title: AZURE - VM (Virtual Machine)
-Description: Take some time to study and review the document on best practices for managing Azure VMs.
+Title: AZURE - VM (Virtual Machine) Governance, Security Architecture, Audit, and Operational Standards
+
+Description:
+This document establishes governance, security architecture, audit, and operational standards for Azure Virtual Machines (VMs). It is intended to support secure deployment, lifecycle governance, operational assurance, and compliance validation across Microsoft Azure environments. The controls in this standard align with Zero Trust principles, Microsoft Zero Trust guidance, CIS Benchmarks, NIST standards, and ISO 27001 governance requirements.
+
+Document status:
+This document was reviewed and refined by Copilot Chat for technical accuracy, consistency, governance alignment, documentation quality, and audit-readiness.
+
 Author: Rodrigo Aurelio Criscuolo
 MS. Author: RodrigoACriscuolo
-MS. Date 10/23/2026
-
-This written in a format suitable for IT governance, security architecture, audit documentation, and operational standards.
-It aligns with NIST SP 800-207 (Zero Trust), Microsoft Zero Trust, CIS Benchmarks, and ISO 27001 governance principles.
+MS. Date: 10/23/2026
 
 Purpose:
-Following by best practices, to ensure Azure Virtual Machines operate within a hardened, monitored, identity-driven, and segmented environment that aligns with Zero Trust principles and organizational governance requirements.
+This standard defines the minimum required controls for Azure VMs to operate within a hardened, monitored, identity-driven, and segmented environment. The objective is to reduce attack surface, enforce least privilege, strengthen accountability, and support audit evidence collection for security operations and governance review.
 
-1. Establish Governance Foundation (Define the Boundary Model)
+Scope:
+This standard applies to all Azure VMs and related resources, including:
+- Virtual networks and subnets
+- Network interfaces
+- Managed disks and snapshots
+- Extensions and agents
+- Resource groups and subscriptions
+- Azure identities and access assignments
+
+This document applies to production, non-production, and shared service environments unless formally waived through an approved exception process.
+
+Reference Model:
+The Azure VM must be treated as a security boundary composed of multiple control layers:
+- Hypervisor boundary
+- Guest operating system boundary
+- Identity boundary
+- Network boundary
+- Data boundary
+
+1. Governance Foundation and Boundary Model
+
 Methodology
- 1.1 Define the VM as a security boundary
-	* Hypervisor boundary
-	* Guest OS boundary
-	* Identity boundary
-	* Network boundary
-	* Data boundary
+1.1 Define the VM as a security boundary
+- Hypervisor boundary: managed by Microsoft Azure; protected by Azure infrastructure controls.
+- Guest OS boundary: managed by the organization; includes patching, hardening, and local configuration.
+- Identity boundary: access to the VM must be controlled through Microsoft Entra ID, JIT, and least-privilege RBAC.
+- Network boundary: controlled through NSGs, route tables, firewalls, private networking, and segmentation.
+- Data boundary: includes disks, snapshots, backups, secrets, and data processing paths.
 
- 1.2 Document the shared responsibility model
-	* Azure protects the hypervisor and physical infrastructure.
-	* The organization protects Identity, OS, Network, and Data.
+1.2 Document the shared responsibility model
+- Azure is responsible for securing the physical infrastructure and hypervisor.
+- The organization is responsible for securing identity, workload configuration, networking, operating systems, application data, and compliance controls.
 
- 1.3 Adopt Zero Trust as the architectural baseline
-	* Never trust, always verify
-	* Assume breach
-	* Enforce least privilege
+1.3 Adopt Zero Trust as the architectural baseline
+- Never trust, always verify
+- Assume breach
+- Enforce least privilege
+- Verify all access requests and connections
+- Require explicit authorization for network and administrative access
 
 Best Practices
-Maintain a governance document describing VM boundaries
-Ensure all teams understand that subnet are not security boundaries.
-Require segmentation through NSGs, firewalls, and routing.
+- Maintain a current governance record of each VM’s security boundary, owner, purpose, and data classification.
+- Ensure all teams understand that subnets are not security boundaries by themselves.
+- Require segmentation using NSGs, Azure Firewall or equivalent, route control, and private connectivity.
+- Document approved exceptions and compensating controls.
+- Maintain architecture diagrams and boundary documentation.
 
-Validation action:
-Review VM architecture diagrams quarterly
-Confirm boundaries are documented in the IT governance library.
-_______________________________________________________________________________
+Validation Actions
+- Review VM boundary documentation quarterly.
+- Review architecture diagrams at least quarterly.
+- Verify that boundary definitions are recorded in the IT governance library.
+- Confirm that privileged access, segmentation, and encryption controls remain aligned to the approved design.
 
-2. Identity Governance (Primary Zero Trust Control)
+Evidence Required
+- Current architecture diagrams and network topology documentation
+- VM inventory showing purpose, owner, criticality, and data classification
+- Governance register or wiki record showing asset boundaries
+- Quarterly review records signed by the system owner or security lead
+- Exception approvals for deviations from the standard
+
+2. Identity Governance and Access Control
 
 Methodology
- 2.1 Enforce strong identity governance for VM access.
- 2.2 Replace local accounts with Entra ID authentication.
- 2.3 Use Privileged Identity Management (PIM) authentication.
- 2.4 Require Just-In-Time access for SSH/ RDP.
- 2.5 Apply least privilege RBAC at VM, disk, and resource group levels.
+2.1 Enforce strong identity governance for VM access.
+2.2 Replace local administrative access with Microsoft Entra ID-based access wherever feasible.
+2.3 Use Privileged Identity Management (PIM) for administrative roles.
+2.4 Require Just-In-Time (JIT) access for SSH and RDP administrative sessions.
+2.5 Apply least-privilege RBAC at the VM, disk, network, and resource group levels.
 
 Best Practices
-No standing admin access
-No shared accounts.
-No unmanaged SSH keys.
-Managed Identity for all workloads.
-Conditional Access for VM sign-in.
+- No standing administrative access unless explicitly approved and time-bound.
+- No shared accounts for administrative access.
+- No unmanaged SSH keys or embedded secrets.
+- Use managed identities for workloads requiring Azure resource access.
+- Require Microsoft Entra ID-based sign-in and Conditional Access for administrative access to VMs.
+- Restrict local admin rights to approved break-glass accounts only.
+- Enforce MFA and Conditional Access for all privileged access paths.
+- Use RBAC and Azure Policy to restrict disk, VM, and resource group permissions.
 
-Validation actions:
-Disable local admin accounts.
-Require Entra ID login for Windows/ Linux
-Enforce MFA and Conditional Access.
-	Validation Commands:
-	- PowerShell
-	- Get-AzRoleAssignment -Scope (Get-AzVM -ResourceGroupName <RG> -Name <VM>).Id
+Validation Actions
+- Disable unmanaged local administrator accounts.
+- Require Microsoft Entra ID-based authentication for Windows and Linux administration.
+- Enforce MFA and Conditional Access for privileged access.
+- Validate that administrative roles are assigned through PIM and expire by design.
+- Review privileged access assignments monthly.
 
-	- Azure CLI (Bash)
-	- az role assignment list --scope $(az vm show -g <RG> -n <VM --query id -o tsv)
-Replace Local Accounts
-	How to perform
-	- Audit VM OS for local Accounts.
-	- Remove or disable non-managed accounts.
-	Validation commands (Windows):
-	- PowerShell
-	- Get-LocalUser
+Validation Commands
 
-	- Bash (Linux):
-	- cat /etc/passwd
-Enforce PIM
-	How to perform
-	- Require elevation through Entra PIM for VM operators.
-	- Remove permanent admin roles
-	Validation action:
-	- Review PIM assignments monthly
-_______________________________________________________________________________
+PowerShell
+```powershell
+Get-AzRoleAssignment -Scope (Get-AzVM -ResourceGroupName <RG> -Name <VM>).Id
+```
 
-3. Network Segmentation & Boundary Enforcement
+Azure CLI
+```bash
+az role assignment list --scope $(az vm show -g <RG> -n <VM> --query id -o tsv)
+```
+
+Local Account Review
+- Windows:
+```powershell
+Get-LocalUser
+```
+
+- Linux:
+```bash
+cat /etc/passwd
+```
+
+Review and Cleanup
+- Audit local accounts and remove or disable unmanaged or orphaned accounts.
+- Reconcile administrative access with approved access lists.
+- Remove permanent privileged assignments that are not justified by the business or security requirement.
+
+Evidence Required
+- Azure RBAC assignment export showing VM scope permissions
+- PIM activation logs and role assignment review records
+- Microsoft Entra sign-in logs and MFA policy evidence
+- Local account audit results
+- Approved break-glass account list with justification and expiration
+- Access review records signed off by the system owner
+
+3. Network Segmentation and Boundary Enforcement
 
 Methodology
- 3.1 Treat the network as untrusted.
- 3.2 Enforce segmentation using:
-	NSGs
-	Azure Firewall / NVA
-	Custom Routes (UDRs)
-	Virtual Network Manager (AVNM) Security Admin Rules
- 3.3 Validate east-west traffic paths.
- 3.4 Log and analyze all flows.
+3.1 Treat the network as untrusted.
+3.2 Enforce segmentation using:
+- NSGs
+- Azure Firewall or network virtual appliances
+- User-defined routes (UDRs)
+- Private endpoints and private access patterns
+- Virtual Network Manager (AVNM) where appropriate
+3.3 Validate east-west traffic paths and access flows.
+3.4 Log, monitor, and review all inbound and outbound traffic touching the VM boundary.
 
 Best Practices
-Deny-by-default NSG posture.
-No direct subnet-to-subnet trust.
-Route sensitive workloads through firewalls.
-Use AVNM for global segmentation policies
-Enable NSG Flow Logs + Traffic Analytics.
-_______________________________________________________________________________
+- Adopt a deny-by-default NSG posture.
+- Do not assume subnet trust is equivalent to security enforcement.
+- Route sensitive workloads through controlled inspection paths.
+- Use Azure Firewall or an equivalent approved segmentation control for high-value assets.
+- Restrict direct subnet-to-subnet trust except where explicitly required and documented.
+- Enable NSG Flow Logs and traffic analytics.
+- Use private endpoints wherever feasible for storage, databases, and supporting services.
 
-4. OS Hardening & Configuration Governance
+Validation Actions
+- Validate that each VM NIC or subnet has a defined security boundary.
+- Confirm that traffic is restricted by NSG, firewall, and route policy.
+- Review east-west traffic paths for unexpected trust relationships.
+- Verify flow logs are enabled and retained according to policy.
+
+Evidence Required
+- NSG configuration exports
+- Route table and UDR exports
+- Firewall rule sets and policy review records
+- Network architecture diagrams showing trust boundaries
+- Flow log configuration screenshots or API exports
+- Evidence of approved whitelisting and exceptions
+
+4. Operating System Hardening and Configuration Governance
 
 Methodology
- 4.1 Apply CIS or organizational baselines
- 4.2 Enforce patching and configuration compliance.
- 4.3 Control VM extensions and agents.
- 4.4 Validate OS integrity and secure boot.
+4.1 Apply CIS or approved organizational baselines.
+4.2 Enforce patching and configuration compliance.
+4.3 Control VM extensions and agents.
+4.4 Validate OS integrity and secure boot settings.
+4.5 Require formal lifecycle controls for configuration changes across development and production.
 
 Best Practices
-Disable unused services.
-Enforce secure boot and vTPM.
-Use Azure Update Manager for patch governance.
-Audit VM extensions regularly.
-______________________________________________________________________________
+- Disable unused services and unnecessary network listeners.
+- Enforce secure boot and vTPM where supported by the VM type and workload requirements.
+- Use Azure Update Manager or an approved equivalent patching mechanism.
+- Review and restrict VM extensions to approved configurations only.
+- Enforce OS hardening baselines based on CIS or an internally approved standard.
+- Validate that only approved agents and monitoring tools are installed on the VM.
 
-5. Data Protection & Encryption Governance
+Validation Actions
+- Review VM extensions and agents for unauthorized changes.
+- Verify that patching is active and compliant.
+- Validate secure boot and vTPM configuration where applicable.
+- Review service and startup configuration for disabled or unnecessary components.
+
+Evidence Required
+- CIS or organizational baseline compliance reports
+- Patch compliance reports
+- Secure boot and vTPM configuration evidence
+- VM extension inventory
+- Change records for system hardening and exception approvals
+
+5. Data Protection and Encryption Governance
 
 Methodology
- 5.1 Enforce encryption at rest:
-	* SSE with PMK
-	* ADE or Confidential Disk Encryption
- 5.2 Protect data in transit:
-	* TLS enforcement
-	* Private endpoints
- 5.3 Control access to disks and snapshots
+5.1 Enforce encryption at rest for all managed disks and supported data stores.
+5.2 Protect data in transit through transport encryption and private network access.
+5.3 Restrict access to disks, snapshots, backups, and image artifacts.
+5.4 Separate disk encryption from confidential computing controls.
 
 Best Practices
-No unencrypted disks.
-No public endpoints for storage.
-RBAC restrictions on snapshot creation.
-Use confidential computing for sensitive workloads.
-_______________________________________________________________________________
+- No unmanaged or unencrypted disks.
+- Disable public access to storage unless explicitly approved.
+- Apply RBAC restrictions on snapshot creation and distribution.
+- Use Azure Disk Encryption when appropriate, or platform-supported encryption options.
+- Use private endpoints or equivalent private connectivity for storage, backup, and management services.
+- Use confidential computing for sensitive workloads where required by risk or regulatory obligations.
 
-6. Monitoring, Logging & Threat Detection Governance
+Validation Actions
+- Confirm managed disks and snapshots are encrypted.
+- Review storage access paths for public endpoints or insecure exposure.
+- Validate RBAC restrictions on backup and snapshot operations.
+- Confirm use of confidential computing for high-risk workloads where required.
+
+Validation Commands
+```bash
+az disk show -g <RG> -n <DISK> --query "encryption.type"
+```
+
+Evidence Required
+- Disk encryption configuration reports
+- Snapshot RBAC exports and access review records
+- Storage account networking configuration
+- Confidential computing eligibility and implementation records
+- Approved exception documentation for any public access
+
+6. Monitoring, Logging, and Threat Detection Governance
 
 Methodology
- 6.1 Enable full telemetry:
-	* Azure Monitor Agent
-	* VM Insights
-	* NSG Flow Logs
-	* Activity Logs
-	* Azure Firewall logs
- 6.2 Integrate with SIEM (Microsoft Sentinel).
- 6.3 Define alerting thresholds and escalation paths.
+6.1 Enable full telemetry for the VM boundary.
+6.2 Collect logs from the guest OS, Azure Monitor, Network Security Groups, Activity Logs, and Azure Firewall.
+6.3 Integrate telemetry with a SIEM or security analytics platform.
+6.4 Define alert thresholds, ownership, and escalation paths.
 
 Best Practices
-Log everything that touches the VM boundary.
-Use Sentinel analytics for lateral movement detection.
-Monitor identity anomalies (PIM, JIT, failed logins).
-Enforce log retention aligned with compliance.
-_______________________________________________________________________________
+- Log all activity affecting the VM boundary.
+- Enable Azure Monitor Agent and VM Insights where appropriate.
+- Enable NSG Flow Logs and retain them according to policy.
+- Integrate into Microsoft Sentinel or an equivalent SIEM.
+- Monitor identity anomalies, including PIM activity, JIT access, and failed sign-ins.
+- Define incident severity, escalation, and response time objectives.
 
-7. Compliance, Lifecycle & Operational Governance
+Validation Actions
+- Verify that telemetry is enabled and retained.
+- Confirm that alert rules are configured and operational.
+- Review SIEM correlation rules and detection coverage quarterly.
+- Validate that log retention meets compliance expectations.
+
+Validation Commands
+
+NSG Flow Logs
+```bash
+az network watcher flow-log show --resource-group <RG> --name <NW>
+```
+
+VM Insights / monitoring extension
+```powershell
+Get-AzVMExtension -ResourceGroupName <RG> -VMName <VM> | Where-Object { $_.Name -like "*AzureMonitor*" }
+```
+
+Evidence Required
+- Azure Monitor configuration exports
+- Sentinel analytics rule inventory
+- Log retention policy evidence
+- Alert rule configuration and test records
+- Incident response runbooks and owner assignments
+
+7. Compliance, Lifecycle, and Operational Governance
 
 Methodology
- 7.1 Define VM lifecycle stages:
-	* Request
-	* Provision
-	* Harden
-	* Operate
-	* Monitor
-	* Decommission
- 7.2 Enforce governance gates at each stage.
- 7.3 Require periodic boundary validation.
+7.1 Define the VM lifecycle stages:
+- Request
+- Provision
+- Harden
+- Operate
+- Monitor
+- Decommission
+7.2 Enforce governance gates at each lifecycle stage.
+7.3 Require periodic boundary validation.
+7.4 Ensure secure decommissioning at end of lifecycle.
 
-Best Practices:
-Quarterly VM boundary audits.
-Automated compliance checks (Azure Policy).
-Decommission VMs securely (wipe disk, revoke identities).
-Maintain architecture diagrams and boundary documentation.
-_______________________________________________________________________________
+Best Practices
+- Conduct quarterly VM boundary audits.
+- Use automated compliance checks through Azure Policy.
+- Decommission VMs securely by revoking identities, removing access, and wiping or deleting supporting data.
+- Maintain architecture diagrams, boundary documentation, and ownership records.
+- Require formal approval for all exceptions and changes affecting VM risk posture.
 
-Example: governance validation script (PowerShell skeleton)
-# Connect
-´´´text
+Validation Actions
+- Review all VMs for lifecycle completeness.
+- Validate that Azure Policy is assigned and evaluated.
+- Confirm that decommissioning is performed according to the approved process.
+- Verify that documented architecture and ownership data remain accurate.
+
+Evidence Required
+- Azure Policy assignment and compliance reports
+- Quarterly audit reports
+- Lifecycle approval records
+- Decommissioning checklist and evidence of data destruction or revocation
+- Updated architectural and ownership documentation
+
+Example: Governance Validation Script (PowerShell)
+
+```powershell
+# Connect to Azure
 Connect-AzAccount
-´´´
 
 # 1. Get all VMs
-´´´text
 $vms = Get-AzVM
-´´´
 
 # 2. For each VM, validate key controls
-´´´text
 $report = foreach ($vm in $vms) {
     $nics = Get-AzNetworkInterface -ResourceGroupName $vm.ResourceGroupName |
             Where-Object { $_.VirtualMachine.Id -eq $vm.Id }
@@ -195,43 +328,43 @@ $report = foreach ($vm in $vms) {
              Where-Object { $_.ManagedBy -eq $vm.Id }
 
     [PSCustomObject]@{
-        VMName            = $vm.Name
-        ResourceGroup     = $vm.ResourceGroupName
-        HasNSG            = ($nics.NetworkSecurityGroup -ne $null)
-        HasManagedIdentity= ($vm.Identity -ne $null)
-        IsEncrypted       = ($disks.Encryption.Type -ne $null)
-        HasPublicIP       = ($nics.IpConfigurations.PublicIpAddress -ne $null)
+        VMName              = $vm.Name
+        ResourceGroup       = $vm.ResourceGroupName
+        HasNSG              = ($nics.NetworkSecurityGroup -ne $null)
+        HasManagedIdentity  = ($vm.Identity -ne $null)
+        IsEncrypted         = ($disks.Encryption.Type -ne $null)
+        HasPublicIP         = ($nics.IpConfigurations.PublicIpAddress -ne $null)
     }
 }
-´´´
 
 # 3. Export quarterly report
-´´´text
 $timestamp = Get-Date -Format "yyyyMMdd"
 $report | Export-Csv -Path "vm-governance-report-$timestamp.csv" -NoTypeInformation
-´´´
-_______________________________________________________________________________
+```
 
-Example: Azure Policy + alerts as code
-Use ARM/Bicep/Terraform or PowerShell to:
+This script should be used to produce exceptions and findings only, not a full resource dump. Only non-compliant records should be reported unless the business requires a full compliance inventory.
 
-Assign policies (e.g., “Require NSG on NIC”, “Require disk encryption”, “Deny public IP on VMs”).
+Example: Azure Policy and Alerts as Code
 
-Create Azure Monitor alerts via ARM templates or az monitor metrics/diagnostic-settings/alert commands.
-______________________________________________________________________________
+Use ARM, Bicep, or Terraform to:
+- Assign policies such as “Require NSG on NIC”
+- Require disk encryption
+- Deny public IP on VMs unless explicitly approved
+- Create Azure Monitor alerts and action groups for unauthorized exposure
 
-Conditional Access via script (high-level)
-Use Entra ID PowerShell / Graph API to:
+The controls should be defined in code and reviewed as part of environment governance and change management.
 
-Create Conditional Access policies targeting:
-VM sign-in (Azure AD sign-in to Azure resources).
-Specific roles/groups (e.g., “VM Operators”).
-Enforce MFA, compliant device, trusted locations.
-_______________________________________________________________________________
+Conditional Access for VM Administration
 
-Policy and alerts as code
-Bicep – require NSG on NIC and disk encryption, plus a basic alert
-´´´text
+Use Microsoft Entra ID PowerShell or Graph API to:
+- Create Conditional Access policies for administrative access to Azure resources
+- Restrict access to trusted networks, compliant devices, and required MFA
+- Target specific groups such as VM Operators or platform administrators
+- Log approvals and access flows for audit review
+
+Policy and Alerts as Code Example (Bicep)
+
+```bicep
 @description('Log Analytics workspace ID')
 param logAnalyticsWorkspaceId string
 
@@ -307,7 +440,7 @@ resource assignRequireDiskEnc 'Microsoft.Authorization/policyAssignments@2023-03
   }
 }
 
-// Alert: VM with public IP (metric-based example)
+// Alert: VM with public IP
 resource actionGroup 'Microsoft.Insights/actionGroups@2022-06-01' = {
   name: 'vm-governance-actiongroup'
   location: 'global'
@@ -355,11 +488,11 @@ resource alertPublicIp 'Microsoft.Insights/metricAlerts@2023-01-01' = {
     ]
   }
 }
-´´´
-_______________________________________________________________________________
+```
 
-Terraform – policy assignment and alert skeleton
-´´´text
+Terraform Policy Assignment and Alert Skeleton
+
+```hcl
 provider "azurerm" {
   features {}
 }
@@ -435,114 +568,116 @@ resource "azurerm_monitor_metric_alert" "vm_public_ip_alert" {
     action_group_id = azurerm_monitor_action_group.vm_governance.id
   }
 }
-´´´
-_______________________________________________________________________________
+```
 
 Identity Checks
-(PowerShell) Check: VM has no local admin accounts
-´´´text
+
+PowerShell: Check whether the VM has local administrator accounts
+```powershell
 Get-LocalUser | Where-Object { $_.Enabled -eq $true -and $_.Name -ne "Administrator" }
-´´´
+```
 
-(PowerShell) Check: VM uses Entra ID login
-´´´text
-az vm show -g <RG> -n <VM> --query "securityProfile.enableVtpm"
-´´´
+PowerShell: Check Microsoft Entra ID / identity readiness
+```bash
+az vm show -g <RG> -n <VM> --query "identity" -o json
+```
 
-(PowerShell) Check: Managed Identity is enabled
-´´´text
-az vm show -g <RG> -n <VM> --query "identity"
-´´´
-_______________________________________________________________________________
 Network Checks
 
-(PowerShell) Check: NIC has NSG
-´´´text
+PowerShell: Check if the NIC has an NSG
+```powershell
 $nsg = $nic.NetworkSecurityGroup
 if (-not $nsg) { "NIC missing NSG" }
-´´´
-(Bash) Check: Subnet has NSG
-´´´text
+```
+
+Azure CLI: Check if a subnet has an NSG
+```bash
 az network vnet subnet show -g <RG> --vnet-name <VNET> -n <SUBNET> --query "networkSecurityGroup"
-´´´
+```
 
-(Bash) Check: VM has no public IP
-´´´text
+Azure CLI: Check if a VM has a public IP
+```bash
 az network nic show -g <RG> -n <NIC> --query "ipConfigurations[].publicIpAddress"
-´´´
+```
 
-(Bash) Check: UDR forces traffic through firewall
-´´´text
+Azure CLI: Check route table entries for traffic forcing
+```bash
 az network route-table route list -g <RG> --route-table-name <RT>
-´´´
-_______________________________________________________________________________
-Encryption Checks
-Check: Disk encryption enabled
-´´´text
-az disk show -g <RG> -n <DISK> --query "encryption.type"
-´´´
-_______________________________________________________________________________
-Logging Checks
-Check: NSG Flow Logs enabled
-´´´text
-az network watcher flow-log show --resource-group <RG> --name <NW>
-´´´
+```
 
-Check: VM Insights enabled
-´´´text
+Encryption Checks
+
+Disk encryption enabled
+```bash
+az disk show -g <RG> -n <DISK> --query "encryption.type"
+```
+
+Logging Checks
+
+NSG Flow Logs enabled
+```bash
+az network watcher flow-log show --resource-group <RG> --name <NW>
+```
+
+VM Insights enabled
+```powershell
 Get-AzVMExtension -ResourceGroupName <RG> -VMName <VM> | Where-Object { $_.Name -like "*AzureMonitor*" }
-´´´
-_______________________________________________________________________________
+```
+
 Noise Reduction Techniques
 
-Only flag violations, not compliant resources
-Instead of dumping all VM data, only output findings:
-PowerShell
-´´´text
+Only report violations and suppress non-actionable noise.
+- Only output findings that represent actual issues or deviations from policy.
+- Do not dump all VM data in the output unless the review explicitly requires full inventory.
+
+Example:
+```powershell
 if ($vmHasIssue) {
     [PSCustomObject]@{
         VMName = $vm.Name
         Issue  = $issueDescription
     }
 }
-´´´
+```
 
-Suppress “expected” warnings
+Suppression of expected exceptions
 If the environment intentionally allows:
-* Public IPs for jumpboxes
-* Specific extensions
-* Specific firewall bypasses
-Add an allow‑list:
-PowerShell
-´´´text
+- Public IPs for jumpboxes
+- Approved extensions
+- Controlled firewall bypasses
+
+Use an allow-list:
+```powershell
 $allowedVMs = @("jumpbox01", "bastion01")
 if ($allowedVMs -contains $vm.Name) { continue }
-´´´
+```
 
-Add severity levels
-PowerShell
-´´´text
+Severity classification
+```powershell
 [PSCustomObject]@{
     VMName   = $vm.Name
     Severity = "High"
     Issue    = "Missing NSG"
 }
-´´´
+```
 
-Add context to reduce false positives
-Example: NSG missing but subnet NSG exists → not a violation.
-PowerShell
-´´´text
+Context-aware evaluation
+Example: missing NSG on NIC but subnet NSG exists; this may not be a violation depending on architecture intent.
+```powershell
 if (-not $nicNSG -and $subnetNSG) {
     # Not a violation
     continue
 }
-´´´
-_______________________________________________________________________________
-Improved Terraform/Bicep Patterns
-Use parameterized policy assignments
-bicep
-´´´text
+```
+
+Improved Terraform and Bicep Patterns
+- Use parameterized policy assignments.
+- Use modules for reusable VM governance patterns.
+- Keep policy and alerts as code aligned to platform standards and change control.
+- Document exception handling and owners in code comments or repository metadata.
+
+Bicep example:
+```bicep
 param policyName string
 param scope string
 
@@ -553,13 +688,58 @@ resource assign 'Microsoft.Authorization/policyAssignments@2023-03-01' = {
     policyDefinitionId: policyDefinition.id
   }
 }
-´´´
+```
 
-Use Terraform modules
-hcl
-´´´text
+Terraform module example:
+```hcl
 module "vm_governance" {
   source = "./modules/vm-governance"
   scope  = var.scope
 }
-´´´
+```
+
+Evidence and Audit Requirements
+The following evidence must be retained to demonstrate control implementation and maintenance:
+- Azure RBAC assignments and review records
+- Network security group exports and route table evidence
+- Azure Policy assignment and compliance reports
+- Disk encryption status and storage security configuration
+- Monitoring, flow log, and Azure Monitor configuration evidence
+- VM extension inventory and change records
+- Microsoft Entra sign-in logs and PIM review logs
+- Security exception records and compensating controls
+- Quarterly governance and architecture review records
+
+Exception Handling
+Authorized exceptions must be:
+- Documented with business justification
+- Approved by the asset owner and security approver
+- Time-bound or reviewed at least quarterly
+- Accompanied by compensating controls
+- Archived with the governance evidence package
+
+References and Source Links
+- NIST Zero Trust Architecture:
+  https://csrc.nist.gov/publications/detail/sp/800-207/final
+- Microsoft Zero Trust guidance:
+  https://www.microsoft.com/en-us/security/business/zero-trust
+- Microsoft Learn: Azure VM security baseline:
+  https://learn.microsoft.com/azure/virtual-machines/security-baseline
+- Microsoft Learn: Network security groups:
+  https://learn.microsoft.com/azure/virtual-network/network-security-groups-overview
+- Microsoft Learn: Managed identities for Azure resources:
+  https://learn.microsoft.com/entra/identity/managed-identities-azure-resources/overview
+- Microsoft Learn: Privileged Identity Management:
+  https://learn.microsoft.com/entra/id-governance/privileged-identity-management/pim-configure
+- Microsoft Learn: Azure Policy overview:
+  https://learn.microsoft.com/azure/governance/policy/overview
+- Microsoft Learn: Azure Monitor and VM Insights:
+  https://learn.microsoft.com/azure/azure-monitor/vm/vminsights-overview
+- Microsoft Learn: Azure Disk Encryption overview:
+  https://learn.microsoft.com/azure/virtual-machines/windows/disk-encryption-overview
+- Microsoft Learn: Confidential VMs:
+  https://learn.microsoft.com/azure/confidential-computing/confidential-vm-overview
+- CIS Microsoft Azure Foundations Benchmark:
+  https://www.cisecurity.org/benchmark/azure/
+- ISO 27001:
+  https://www.iso.org/standard/27001
