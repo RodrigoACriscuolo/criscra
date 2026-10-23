@@ -1,0 +1,426 @@
+This written in a format suitable for IT governance, security architecture, audit documentation, and operational standards.
+It aligns with NIST SP 800-207 (Zero Trust), Microsoft Zero Trust, CIS Benchmarks, and ISO 27001 governance principles.
+
+Purpose:
+Following by best practices, to ensure Azure Virtual Machines operate within a hardened, monitored, identity-driven, and segmented environment that aligns with Zero Trust principles and organizational governance requirements.
+
+1. Establish Governance Foundation (Define the Boundary Model)
+Methodology
+ 1.1 Define the VM as a security boundary
+	* Hypervisor boundary
+	* Guest OS boundary
+	* Identity boundary
+	* Network boundary
+	* Data boundary
+
+ 1.2 Document the shared responsibility model
+	* Azure protects the hypervisor and physical infrastructure.
+	* The organization protects Identity, OS, Network, and Data.
+
+ 1.3 Adopt Zero Trust as the architectural baseline
+	* Never trust, always verify
+	* Assume breach
+	* Enforce least privilege
+
+Best Practices
+Maintain a governance document describing VM boundaries
+Ensure all teams understand that subnet are not security boundaries.
+Require segmentation through NSGs, firewalls, and routing.
+
+Validation action:
+Review VM architecture diagrams quarterly
+Confirm boundaries are documented in the IT governance library.
+_______________________________________________________________________________
+
+2. Identity Governance (Primary Zero Trust Control)
+
+Methodology
+ 2.1 Enforce strong identity governance for VM access.
+ 2.2 Replace local accounts with Entra ID authentication.
+ 2.3 Use Privileged Identity Management (PIM) authentication.
+ 2.4 Require Just-In-Time access for SSH/ RDP.
+ 2.5 Apply least privilege RBAC at VM, disk, and resource group levels.
+
+Best Practices
+No standing admin access
+No shared accounts.
+No unmanaged SSH keys.
+Managed Identity for all workloads.
+Conditional Access for VM sign-in.
+
+Validation actions:
+Disable local admin accounts.
+Require Entra ID login for Windows/ Linux
+Enforce MFA and Conditional Access.
+	Validation Commands:
+	- PowerShell
+	- Get-AzRoleAssignment -Scope (Get-AzVM -ResourceGroupName <RG> -Name <VM>).Id
+
+	- Azure CLI (Bash)
+	- az role assignment list --scope $(az vm show -g <RG> -n <VM --query id -o tsv)
+Replace Local Accounts
+	How to perform
+	- Audit VM OS for local Accounts.
+	- Remove or disable non-managed accounts.
+	Validation commands (Windows):
+	- PowerShell
+	- Get-LocalUser
+
+	- Bash (Linux):
+	- cat /etc/passwd
+Enforce PIM
+	How to perform
+	- Require elevation through Entra PIM for VM operators.
+	- Remove permanent admin roles
+	Validation action:
+	- Review PIM assignments monthly
+_______________________________________________________________________________
+
+3. Network Segmentation & Boundary Enforcement
+
+Methodology
+ 3.1 Treat the network as untrusted.
+ 3.2 Enforce segmentation using:
+	NSGs
+	Azure Firewall / NVA
+	Custom Routes (UDRs)
+	Virtual Network Manager (AVNM) Security Admin Rules
+ 3.3 Validate east-west traffic paths.
+ 3.4 Log and analyze all flows.
+
+Best Practices
+Deny-by-default NSG posture.
+No direct subnet-to-subnet trust.
+Route sensitive workloads through firewalls.
+Use AVNM for global segmentation policies
+Enable NSG Flow Logs + Traffic Analytics.
+_______________________________________________________________________________
+
+4. OS Hardening & Configuration Governance
+
+Methodology
+ 4.1 Apply CIS or organizational baselines
+ 4.2 Enforce patching and configuration compliance.
+ 4.3 Control VM extensions and agents.
+ 4.4 Validate OS integrity and secure boot.
+
+Best Practices
+Disable unused services.
+Enforce secure boot and vTPM.
+Use Azure Update Manager for patch governance.
+Audit VM extensions regularly.
+______________________________________________________________________________
+
+5. Data Protection & Encryption Governance
+
+Methodology
+ 5.1 Enforce encryption at rest:
+	* SSE with PMK
+	* ADE or Confidential Disk Encryption
+ 5.2 Protect data in transit:
+	* TLS enforcement
+	* Private endpoints
+ 5.3 Control access to disks and snapshots
+
+Best Practices
+No unencrypted disks.
+No public endpoints for storage.
+RBAC restrictions on snapshot creation.
+Use confidential computing for sensitive workloads.
+_______________________________________________________________________________
+
+6. Monitoring, Logging & Threat Detection Governance
+
+Methodology
+ 6.1 Enable full telemetry:
+	* Azure Monitor Agent
+	* VM Insights
+	* NSG Flow Logs
+	* Activity Logs
+	* Azure Firewall logs
+ 6.2 Integrate with SIEM (Microsoft Sentinel).
+ 6.3 Define alerting thresholds and escalation paths.
+
+Best Practices
+Log everything that touches the VM boundary.
+Use Sentinel analytics for lateral movement detection.
+Monitor identity anomalies (PIM, JIT, failed logins).
+Enforce log retention aligned with compliance.
+_______________________________________________________________________________
+
+7. Compliance, Lifecycle & Operational Governance
+
+Methodology
+ 7.1 Define VM lifecycle stages:
+	* Request
+	* Provision
+	* Harden
+	* Operate
+	* Monitor
+	* Decommission
+ 7.2 Enforce governance gates at each stage.
+ 7.3 Require periodic boundary validation.
+
+Best Practices:
+Quarterly VM boundary audits.
+Automated compliance checks (Azure Policy).
+Decommission VMs securely (wipe disk, revoke identities).
+Maintain architecture diagrams and boundary documentation.
+_______________________________________________________________________________
+
+Example: governance validation script (PowerShell skeleton)
+# Connect
+Connect-AzAccount
+
+# 1. Get all VMs
+$vms = Get-AzVM
+
+# 2. For each VM, validate key controls
+$report = foreach ($vm in $vms) {
+    $nics = Get-AzNetworkInterface -ResourceGroupName $vm.ResourceGroupName |
+            Where-Object { $_.VirtualMachine.Id -eq $vm.Id }
+
+    $disks = Get-AzDisk -ResourceGroupName $vm.ResourceGroupName |
+             Where-Object { $_.ManagedBy -eq $vm.Id }
+
+    [PSCustomObject]@{
+        VMName            = $vm.Name
+        ResourceGroup     = $vm.ResourceGroupName
+        HasNSG            = ($nics.NetworkSecurityGroup -ne $null)
+        HasManagedIdentity= ($vm.Identity -ne $null)
+        IsEncrypted       = ($disks.Encryption.Type -ne $null)
+        HasPublicIP       = ($nics.IpConfigurations.PublicIpAddress -ne $null)
+    }
+}
+
+# 3. Export quarterly report
+$timestamp = Get-Date -Format "yyyyMMdd"
+$report | Export-Csv -Path "vm-governance-report-$timestamp.csv" -NoTypeInformation
+
+_______________________________________________________________________________
+
+Example: Azure Policy + alerts as code
+Use ARM/Bicep/Terraform or PowerShell to:
+
+Assign policies (e.g., “Require NSG on NIC”, “Require disk encryption”, “Deny public IP on VMs”).
+
+Create Azure Monitor alerts via ARM templates or az monitor metrics/diagnostic-settings/alert commands.
+______________________________________________________________________________
+
+Conditional Access via script (high-level)
+Use Entra ID PowerShell / Graph API to:
+
+Create Conditional Access policies targeting:
+VM sign-in (Azure AD sign-in to Azure resources).
+Specific roles/groups (e.g., “VM Operators”).
+Enforce MFA, compliant device, trusted locations.
+_______________________________________________________________________________
+
+Policy and alerts as code
+Bicep – require NSG on NIC and disk encryption, plus a basic alert
+
+@description('Log Analytics workspace ID')
+param logAnalyticsWorkspaceId string
+
+@description('Scope for policy assignment')
+param scope string
+
+// Policy: Require NSG on NIC
+resource policyRequireNsg 'Microsoft.Authorization/policyDefinitions@2023-03-01' = {
+  name: 'require-nsg-on-nic'
+  properties: {
+    policyType: 'Custom'
+    mode: 'Indexed'
+    displayName: 'Require NSG on NIC'
+    description: 'Ensures all NICs have an NSG associated.'
+    policyRule: {
+      if: {
+        field: 'type'
+        equals: 'Microsoft.Network/networkInterfaces'
+      }
+      then: {
+        effect: 'auditIfNotExists'
+        details: {
+          type: 'Microsoft.Network/networkSecurityGroups'
+          existenceCondition: {
+            field: 'Microsoft.Network/networkInterfaces/networkSecurityGroup.id'
+            notEquals: ''
+          }
+        }
+      }
+    }
+  }
+}
+
+resource assignRequireNsg 'Microsoft.Authorization/policyAssignments@2023-03-01' = {
+  name: 'assign-require-nsg-on-nic'
+  properties: {
+    displayName: 'Require NSG on NIC'
+    policyDefinitionId: policyRequireNsg.id
+    scope: scope
+  }
+}
+
+// Policy: Require disk encryption
+resource policyRequireDiskEnc 'Microsoft.Authorization/policyDefinitions@2023-03-01' = {
+  name: 'require-disk-encryption'
+  properties: {
+    policyType: 'Custom'
+    mode: 'Indexed'
+    displayName: 'Require disk encryption on managed disks'
+    description: 'Ensures all managed disks are encrypted.'
+    policyRule: {
+      if: {
+        field: 'type'
+        equals: 'Microsoft.Compute/disks'
+      }
+      then: {
+        effect: 'audit'
+        details: {
+          field: 'Microsoft.Compute/disks/encryption.type'
+          equals: 'EncryptionAtRestWithPlatformKey'
+        }
+      }
+    }
+  }
+}
+
+resource assignRequireDiskEnc 'Microsoft.Authorization/policyAssignments@2023-03-01' = {
+  name: 'assign-require-disk-encryption'
+  properties: {
+    displayName: 'Require disk encryption'
+    policyDefinitionId: policyRequireDiskEnc.id
+    scope: scope
+  }
+}
+
+// Alert: VM with public IP (metric-based example)
+resource actionGroup 'Microsoft.Insights/actionGroups@2022-06-01' = {
+  name: 'vm-governance-actiongroup'
+  location: 'global'
+  properties: {
+    groupShortName: 'vmgov'
+    enabled: true
+    emailReceivers: [
+      {
+        name: 'SecOpsEmail'
+        emailAddress: 'secops@contoso.com'
+        status: 'Enabled'
+      }
+    ]
+  }
+}
+
+resource alertPublicIp 'Microsoft.Insights/metricAlerts@2023-01-01' = {
+  name: 'vm-public-ip-alert'
+  location: 'global'
+  properties: {
+    description: 'Alert when VMs with public IP are detected.'
+    severity: 2
+    enabled: true
+    scopes: [
+      scope
+    ]
+    evaluationFrequency: 'PT5M'
+    windowSize: 'PT15M'
+    criteria: {
+      allOf: [
+        {
+          name: 'PublicIPCount'
+          metricName: 'PublicIPCount'
+          metricNamespace: 'custom/vmGovernance'
+          operator: 'GreaterThan'
+          threshold: 0
+          timeAggregation: 'Average'
+        }
+      ]
+    }
+    actions: [
+      {
+        actionGroupId: actionGroup.id
+      }
+    ]
+  }
+}
+
+_______________________________________________________________________________
+
+Terraform – policy assignment and alert skeleton
+
+provider "azurerm" {
+  features {}
+}
+
+variable "scope" {
+  type = string
+}
+
+resource "azurerm_policy_definition" "require_nsg_on_nic" {
+  name         = "require-nsg-on-nic"
+  policy_type  = "Custom"
+  mode         = "Indexed"
+  display_name = "Require NSG on NIC"
+  description  = "Ensures all NICs have an NSG associated."
+
+  policy_rule = <<POLICY
+{
+  "if": {
+    "field": "type",
+    "equals": "Microsoft.Network/networkInterfaces"
+  },
+  "then": {
+    "effect": "auditIfNotExists",
+    "details": {
+      "type": "Microsoft.Network/networkSecurityGroups",
+      "existenceCondition": {
+        "field": "Microsoft.Network/networkInterfaces/networkSecurityGroup.id",
+        "notEquals": ""
+      }
+    }
+  }
+}
+POLICY
+}
+
+resource "azurerm_policy_assignment" "assign_require_nsg_on_nic" {
+  name                 = "assign-require-nsg-on-nic"
+  display_name         = "Require NSG on NIC"
+  policy_definition_id = azurerm_policy_definition.require_nsg_on_nic.id
+  scope                = var.scope
+}
+
+resource "azurerm_monitor_action_group" "vm_governance" {
+  name                = "vm-governance-actiongroup"
+  resource_group_name = "rg-monitoring"
+  short_name          = "vmgov"
+
+  email_receiver {
+    name          = "SecOpsEmail"
+    email_address = "secops@contoso.com"
+  }
+}
+
+resource "azurerm_monitor_metric_alert" "vm_public_ip_alert" {
+  name                = "vm-public-ip-alert"
+  resource_group_name = "rg-monitoring"
+  scopes              = [var.scope]
+  description         = "Alert when VMs with public IP are detected."
+  severity            = 2
+  enabled             = true
+  frequency           = "PT5M"
+  window_size         = "PT15M"
+
+  criteria {
+    metric_namespace = "custom/vmGovernance"
+    metric_name      = "PublicIPCount"
+    aggregation      = "Average"
+    operator         = "GreaterThan"
+    threshold        = 0
+  }
+
+  action {
+    action_group_id = azurerm_monitor_action_group.vm_governance.id
+  }
+}
+
+_______________________________________________________________________________
