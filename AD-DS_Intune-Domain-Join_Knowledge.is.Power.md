@@ -552,3 +552,130 @@ Device is compliant when:
     - OS hardened
 
 
+APilot Technician Step-by-Step Guide
+Hands-on instructions for onboarding any device using APilot
+
+01 - Prepare the Device (Start Here)
+Ensure the device is physically ready before APilot onboarding begins.
+
+Verify the device powers on without errors
+Confirm network connectivity (Wi-Fi or Ethernet)
+Check the system clock is correct (important for MFA and certificates)
+Remove any previous domain join or MDM enrollment
+
+02 - Open the APilot Invitation Email
+The user must open the invitation on the device being onboarded.
+
+Ask the user to sign in to their corporate email
+Confirm the email is opened on the correct device
+Have the user click the APilot Registration Link
+
+03 - Guide the User Through MFA Authentication
+Identity verification is required before any device actions occur.
+
+Ensure the user enters their corporate email and password
+Assist with MFA approval (Authenticator app, SMS, or FIDO key)
+Confirm the portal loads successfully after MFA
+
+04 - Download and Install the APilot Plugin
+The plugin performs inventory, validation, and automation tasks.
+
+Click Download Plugin when prompted
+Run the installer as Administrator
+Wait for the plugin to collect serial, MAC, BIOS UUID, TPM info
+Confirm the plugin shows Device Identity Verified
+
+05 - Validate CMDB Match
+The plugin must match the device’s identity with the CMDB record.
+
+Check the plugin status: CMDB Match: Success
+If mismatch occurs:
+Verify serial number manually
+Re-check assigned user
+Contact admin to correct CMDB entry
+
+06 - Start VPN Bootstrap
+The plugin prepares the device for secure connectivity.
+
+Confirm the hostname displayed is correct
+Click Continue to start VPN onboarding
+Wait for the VPN package and temporary certificate to download
+
+07 - Install Temporary Certificate and VPN Client
+The plugin installs the certificate and configures the VPN automatically.
+
+Allow the installer to run without interruption
+Ensure antivirus does not block certificate installation
+Confirm the plugin shows Temporary Certificate Installed
+Confirm the VPN client appears in the Start Menu
+
+08 - Connect to VPN (Most Common Issue)
+VPN connectivity determines whether APilot uses cloud, hybrid, or legacy join.
+
+Open VPN Client → Connect
+Have the user enter email + password
+Approve MFA if required
+Wait for VPN Connected status
+If connection fails:
+Check internet access
+Check firewall
+Retry after 30 seconds
+
+09 - Verify Network Context
+APilot Gateway determines the correct domain-join path.
+
+Plugin will show either:
+Corporate Network Detected → Standard join
+Non-Corporate Network → Remote join
+No technician action required unless detection fails
+
+10 - Execute Domain Join
+APilot Automation Engine performs the join automatically.
+
+Wait for plugin to show Joining Domain…
+Do NOT run manual domain join commands
+Confirm status changes to Domain Join Successful
+If failure occurs:
+Plugin triggers rollback
+Device enters quarantine
+Contact admin
+
+11 - Install Permanent Certificate
+The device receives its long-term trust certificate.
+Confirm plugin shows Permanent Certificate Installed
+If certificate fails:
+Check VPN
+Check time sync
+Retry certificate issuance
+
+12 - Apply Policies and Compliance
+GPO/Intune baselines are applied depending on join mode.
+Wait for plugin to apply:
+GPO baseline (legacy/hybrid)
+Intune baseline (cloud/hybrid)
+Conditional Access rules
+Confirm Compliance: Passed
+
+13 - Perform Cleanup and Hardening
+The plugin finalizes the device configuration.
+Removal of OEM apps
+Removal of old Office versions
+OS hardening tasks
+Installation of latest Office
+Installation of security tools
+Device reboot
+
+14 - Guide User Through Final Login
+Final authentication ensures device trust and compliance.
+User logs in with email + password + MFA
+Confirm desktop loads without errors
+Verify VPN auto-connect (if required)
+Confirm Office and security tools are installed
+
+15 - Complete Device Verification
+Technician performs final checks before marking onboarding complete.
+Check domain membership
+Check certificate presence
+Check Intune or GPO policy status
+Check CMDB updated to Compliant
+Document onboarding completion
