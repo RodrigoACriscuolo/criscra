@@ -240,3 +240,315 @@ Servers and VMs require a different onboarding track:
 •	Strict GPO baseline
 •	Strict certificate requirements
 •	Strict CMDB governance
+
+
+
+
+1. Roles & Responsibilities
+1.1 Administrators
+Manage APilot Portal
+Approve device registrations
+Validate CMDB entries
+Monitor onboarding sessions
+Handle escalations
+Manage PKI and certificate lifecycle
+Oversee domain join operations
+Maintain GPO/Intune baselines
+Manage quarantine and rollback
+
+1.2 Technicians
+Assist users during onboarding
+Validate physical device identity
+Ensure device readiness
+Perform manual interventions when required
+Execute server/VM onboarding
+Document incidents and failures
+
+2. Pre‑Onboarding Requirements (Admin Tasks)
+Before onboarding begins, administrators must ensure:
+
+2.1 CMDB Record Exists
+Each device must have a CMDB entry containing:
+Device Identity Token (DIT)
+Serial number
+BIOS UUID
+TPM identity (if applicable)
+VM GUID (if applicable)
+Assigned user
+Device type
+Join mode (legacy/hybrid/cloud)
+Compliance requirements
+Certificate requirements
+
+2.2 AD DS OU Structure Prepared
+Ensure the following OU structure exists:
+
+```Forest
+Corp.company.com
+    /Users
+    /Computers
+    /Devices
+        / CAN (Local)
+            /Laptops
+            /Desktops
+            /Servers
+            /VirtualMachines
+
+```
+
+2.3 PKI Ready
+Temporary certificate template configured
+Permanent certificate template configured
+SCEP/NDES or Intune PKI connector operational
+CRL/OCSP reachable
+
+2.4 VPN Infrastructure Ready
+Device tunnel profile
+User tunnel profile
+Pre-logon support (if required)
+Signed configuration packages
+
+2.5 Policy Baselines Ready
+GPO baseline for legacy/hybrid
+Intune baseline for cloud/hybrid
+Conditional Access policies
+Compliance rules
+
+3. User Onboarding Flow (Technician + User)
+Step 1 — Invitation Sent (Admin)
+Admin triggers APilot invitation via portal.
+
+Step 2 — User Opens Invitation on Target Device
+User must open the email on the device being onboarded.
+
+Step 3 — MFA Authentication
+User authenticates with:
+    - Email
+    - Password
+    - MFA (Authenticator, SMS, FIDO, etc.)
+
+Step 4 — Plugin Download & Install
+Portal delivers APilot Plugin.
+Plugin performs:
+    - DIT collection
+    - CMDB validation
+    - Device readiness checks
+    - OS compatibility checks
+    - Disk space checks
+    - Network checks
+
+Step 5 — VPN Bootstrap
+Portal initiates VPN onboarding:
+    - Hostname confirmation
+    - User identity confirmation
+    - VPN package download
+    - Temporary certificate download
+    - Automatic installation
+
+Step 6 — VPN Connection
+User authenticates to VPN.
+Plugin verifies:
+    - Corporate network vs non-corporate
+    - Directory reachability
+    - PKI reachability
+    - CMDB connectivity
+
+Step 7 — Domain Join Execution
+APilot Automation Engine selects join mode:
+    - Cloud-only → Entra Join
+    - Hybrid → AD DS + Entra
+    - Legacy → AD DS only
+    - Plugin executes join commands via backend APIs.
+
+Step 8 — Permanent Certificate Issuance
+PKI issues permanent device certificate.
+
+Step 9 — Policy Application
+GPO baseline applied (legacy/hybrid)
+
+Intune baseline applied (cloud/hybrid)
+
+Conditional Access enforced
+
+Compliance rules evaluated
+
+Step 10 — Cleanup & Hardening
+Plugin performs:
+    - Removal of OEM apps
+    - Removal of old Office versions
+    - OS hardening
+    - Installation of latest Office
+    - Installation of security tools
+    - Final reboot
+
+Step 11 — Final User Authentication
+User logs in with:
+    - Email
+    - Password
+    - MFA
+
+Device enters compliant state.
+
+4. Administrator Runbook/ Guide (Backend Operations)
+4.1 Monitor Onboarding Session
+Admins monitor:
+    - Plugin status
+    - VPN status
+    - Certificate issuance
+    - Domain join logs
+    - Policy application
+    - CMDB updates
+
+4.2 Validate CMDB Write-Back
+Ensure CMDB reflects:
+    - Device validated
+    - Temporary cert issued
+    - VPN connected
+    - Domain join completed
+    - Permanent cert issued
+    - Policies applied
+    - Device compliant
+    - Quarantine (if applicable)
+
+4.3 Handle Failures
+If any step fails:
+    - Device is quarantined
+    - Temporary cert revoked
+    - VPN profile disabled
+    - CMDB updated
+    - User notified
+    - Technician assigned
+    - Admin reviews logs
+    - Admin triggers rollback or restart
+
+4.4 Rollback Procedure
+Rollback resets:
+    - Certificates
+    - VPN profiles
+    - Domain join state
+    - Plugin state
+    - CMDB state
+    - Compliance state
+    - Device returns to pre-onboarding state.
+
+5. Technician Runbook/ Guide (Hands-On Operations)
+5.1 Validate Physical Device
+Technician checks:
+    - Serial number
+    - BIOS UUID
+    - TPM presence
+    - Network adapters
+    - OS version
+    - Hardware readiness
+
+5.2 Assist User
+Technician may assist with:
+    - MFA issues
+    - Plugin installation
+    - VPN authentication
+    - Hostname confirmation
+    - Reboots
+    - Policy application delays
+
+5.3 Manual Domain Join (Fallback)
+If APilot automation fails:
+    - Technician uses APilot backend to trigger manual join
+    - Plugin still handles certs and cleanup
+    - No local domain admin credentials used
+
+5.4 Document Incident
+Technician logs:
+    - Device identity
+    - Failure point
+    - Actions taken
+    - Resolution
+    - Time to onboard
+
+6. Server/VM Onboarding Runbook/ Guide (Admin Only)
+6.1 No User Email
+Servers use APilot-Server track, not APilot-User.
+
+6.2 Admin Initiates Onboarding
+Admin triggers server onboarding via portal.
+
+6.3 Plugin Delivered via Admin Portal
+Plugin collects:
+    - DIT
+    - CMDB match
+    - Server readiness
+
+6.4 Temporary Certificate Issued
+Admin approves hostname.
+
+6.5 VPN Bootstrap (If Remote)
+Server connects via device tunnel.
+
+6.6 Domain Join Executed
+Automation Engine performs:
+    - AD DS join
+    - Entra registration (if hybrid)
+    - Permanent cert issuance
+    - Server baseline policies
+
+6.7 CMDB Updated
+Server enters compliant state.
+
+7. Troubleshooting Guide
+7.1 MFA Failure
+Reset MFA
+Validate identity provider
+Check network connectivity
+
+7.2 Plugin Failure
+Check OS version
+Check disk space
+Check antivirus interference
+Reinstall plugin
+
+7.3 VPN Failure
+Validate temporary cert
+Validate VPN profile
+Check network restrictions
+Check firewall rules
+
+7.4 Domain Join Failure
+Check DC reachability
+Check DNS
+Check CMDB match
+Check certificate validity
+Trigger rollback
+
+7.5 Policy Failure
+Force GPO update
+Force Intune sync
+Validate compliance rules
+
+8. Quarantine Handling
+Devices enter quarantine if:
+    - CMDB mismatch
+    - Certificate failure
+    - VPN failure
+    - Domain join failure
+    - Policy failure
+    - Security anomaly detected
+    - Quarantine actions:
+    - Block domain join
+    - Block certificate issuance
+    - Block VPN
+    - Notify admin
+    - Notify user
+    - Require technician intervention
+
+9. Compliance Verification
+Device is compliant when:
+    - Domain join completed
+    - Permanent cert installed
+    - Policies applied
+    - CMDB updated
+    - Conditional Access passed
+    - No quarantine flags
+    - Security tools installed
+    - Office installed
+    - OS hardened
+
+
