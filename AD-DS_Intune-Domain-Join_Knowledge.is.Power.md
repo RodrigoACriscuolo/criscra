@@ -822,3 +822,31 @@ Reboot the device and confirm it is fully compliant and ready for user login.
         * Security tools running
     '''Call APilot API: POST /device/compliance''' '''---> expect status = compliant'''
     If not compliant ---> flag in CMDB and ITSM
+
+14 - Send Automatic Guidance Email to End-User (User Communication)
+Inform the user that onboarding is complete and guide them through final login.
+'''Script calls Emails API or Graph API: POST /notify/user'''
+
+    Compose email:
+        Subject: "Your Device is Reday - Login Instructions"
+        Body: Steps to log-in with email, password, MFA.
+    
+    Include ITSM TIcket number and Support contact
+    Log email delivery status to APilot backend
+
+15 - Generate Technician Checklist & Attach to ISTM Ticket (Operational Closure)
+Create a structured checklist of all actions and results, and attach it to the ITSM Ticket.
+'''Script calls ITSM API: POST /ticket/update'''
+
+    Build checklist JSON with:
+        DIT verified
+        CMDB updated
+        Plugin installed
+        VPN connected
+        Domain join completed
+        Certs issued
+        Policies applied
+        Cleanup done
+        Compliance - true
+    Convert to human-readable text and attach it to ticket
+    Mark ticket status as "Onboarding Device Completed"
