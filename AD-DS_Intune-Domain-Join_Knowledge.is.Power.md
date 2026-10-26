@@ -850,3 +850,523 @@ Create a structured checklist of all actions and results, and attach it to the I
         Compliance - true
     Convert to human-readable text and attach it to ticket
     Mark ticket status as "Onboarding Device Completed"
+
+    Module Skeleton (APilot.psm1)
+    This script was created in VS Code with help of Copilot chat.
+
+    '''PowerShell
+    <#
+.APilot.psm1
+APilot PowerShell Module Skeleton
+Purpose:
+    Provide core functions for the APilot onboarding methodology:
+    - Identity & invitation
+    - Device identity (DIT)
+    - CMDB checks
+    - Plugin install
+    - VPN bootstrap
+    - Certificate handling
+    - Domain join
+    - Policy sync
+    - Cleanup
+    - Email
+    - ITSM integration
+Note:
+    This is a skeleton for real-world implementation.
+    All external calls (REST APIs, Graph, CMDB, PKI, VPN, etc.)
+    are represented as placeholders.
+#>
+
+# region: Module Initialization
+
+# Load configuration (API endpoints, tokens, etc.)
+$Script:APilotConfig = @{
+    ApiBaseUrl      = "https://apilot-backend.local/api"
+    CMDBBaseUrl     = "https://cmdb.local/api"
+    ITSMBaseUrl     = "https://itsm.local/api"
+    PKIBaseUrl      = "https://pki.local/api"
+    VPNProfileName  = "APilot-VPN"
+    LogPath         = "C:\APilot\Logs\apilot.log"
+}
+
+function Write-APilotLog {
+    param(
+        [string]$Message,
+        [string]$Level = "INFO"
+    )
+    $timestamp = Get-Date -Format "yyyy-MM-dd HH:mm:ss"
+    $line = "$timestamp [$Level] $Message"
+    Write-Host $line
+    Add-Content -Path $Script:APilotConfig.LogPath -Value $line
+}
+
+function Invoke-APilotAPI {
+    param(
+        [string]$Method,
+        [string]$Endpoint,
+        [object]$Body = $null
+    )
+
+    $url = "$($Script:APilotConfig.ApiBaseUrl)$Endpoint"
+    Write-APilotLog "Calling APilot API: $Method $url" "DEBUG"
+
+    try {
+        if ($Body) {
+            $json = $Body | ConvertTo-Json -Depth 5
+            return Invoke-RestMethod -Method $Method -Uri $url -Body $json -ContentType "application/json"
+        } else {
+            return Invoke-RestMethod -Method $Method -Uri $url
+        }
+    }
+    catch {
+        Write-APilotLog "APilot API call failed: $($_.Exception.Message)" "ERROR"
+        throw
+    }
+}
+
+# endregion
+
+# region: Identity & Invitation
+
+function Invoke-APilotInvitation {
+    <#
+    .SYNOPSIS
+        Validates that the current session is associated with a valid APilot invitation.
+    .DESCRIPTION
+        In a real implementation, this would:
+        - Validate an invitation token (from URL or file)
+        - Confirm that the invitation is still valid (not expired, not used)
+    #>
+    Write-APilotLog "Validating APilot invitation..."
+    # Placeholder: simulate success
+    return $true
+}
+
+function Invoke-APilotMFA {
+    <#
+    .SYNOPSIS
+        Ensures MFA has been completed for the current user.
+    .DESCRIPTION
+        In a real implementation, this would:
+        - Integrate with Entra ID / IdP
+        - Confirm MFA status via API
+    #>
+    Write-APilotLog "Checking MFA status..."
+    # Placeholder: simulate success
+    return $true
+}
+
+# endregion
+
+# region: Device Identity Token (DIT)
+
+function Get-DIT {
+    <#
+    .SYNOPSIS
+        Collects Device Identity Token (DIT) attributes.
+    .DESCRIPTION
+        DIT is a composite identity:
+        - Serial number
+        - BIOS UUID
+        - TPM identity (if available)
+        - Hardware hash (if available)
+        - VM GUID (if applicable)
+        - MAC addresses (secondary)
+    #>
+    Write-APilotLog "Collecting Device Identity Token (DIT)..."
+
+    $serial = (Get-CimInstance Win32_BIOS).SerialNumber
+    $biosUuid = (Get-CimInstance Win32_ComputerSystemProduct).UUID
+    $macs = Get-NetAdapter | Where-Object { $_.Status -eq "Up" } | Select-Object -ExpandProperty MacAddress
+
+    $DIT = [PSCustomObject]@{
+        SerialNumber = $serial
+        BIOSUUID     = $biosUuid
+        MACAddresses = $macs
+        # TPM, hardware hash, VM GUID would be added here
+    }
+
+    Write-APilotLog "DIT collected: Serial=$serial, BIOSUUID=$biosUuid"
+    return $DIT
+}
+
+function Invoke-DITValidation {
+    param(
+        [Parameter(Mandatory)][object]$DIT
+    )
+    <#
+    .SYNOPSIS
+        Validates DIT against APilot backend.
+    .DESCRIPTION
+        In a real implementation, this would:
+        - Send DIT to APilot backend
+        - Confirm match with CMDB record
+    #>
+    Write-APilotLog "Validating DIT against APilot backend..."
+    $response = Invoke-APilotAPI -Method "POST" -Endpoint "/device/validate" -Body $DIT
+    if ($response.status -ne "ok") {
+        Write-APilotLog "DIT validation failed." "ERROR"
+        throw "DIT validation failed."
+    }
+    Write-APilotLog "DIT validation succeeded."
+    return $true
+}
+
+# endregion
+
+# region: CMDB
+
+function Invoke-CMDBCheck {
+    param(
+        [Parameter(Mandatory)][object]$DIT
+    )
+    <#
+    .SYNOPSIS
+        Checks CMDB for device record.
+    .DESCRIPTION
+        In a real implementation, this would:
+        - Query CMDB by DIT attributes
+        - Confirm device exists and is assigned to correct user
+    #>
+    Write-APilotLog "Checking CMDB for device record..."
+    # Placeholder: simulate success
+    return $true
+}
+
+function Update-CMDBState {
+    param(
+        [Parameter(Mandatory)][object]$DIT,
+        [Parameter(Mandatory)][string]$State
+    )
+    <#
+    .SYNOPSIS
+        Updates CMDB with device state.
+    .DESCRIPTION
+        In a real implementation, this would:
+        - Write back final state (Compliant, Quarantined, etc.)
+    #>
+    Write-APilotLog "Updating CMDB state to '$State'..."
+    # Placeholder: simulate success
+    return $true
+}
+
+# endregion
+
+# region: Plugin
+
+function Install-APilotPlugin {
+    <#
+    .SYNOPSIS
+        Installs APilot plugin/agent.
+    .DESCRIPTION
+        In a real implementation, this would:
+        - Download plugin from APilot backend
+        - Install silently
+        - Register service
+    #>
+    Write-APilotLog "Installing APilot plugin..."
+    # Placeholder: simulate success
+    return $true
+}
+
+# endregion
+
+# region: VPN
+
+function Install-VPNClient {
+    <#
+    .SYNOPSIS
+        Installs VPN client for APilot.
+    .DESCRIPTION
+        In a real implementation, this would:
+        - Download VPN installer
+        - Install with predefined profile
+    #>
+    Write-APilotLog "Installing VPN client..."
+    # Placeholder: simulate success
+    return $true
+}
+
+function Invoke-VPNConnect {
+    <#
+    .SYNOPSIS
+        Connects to VPN using APilot profile.
+    .DESCRIPTION
+        In a real implementation, this would:
+        - Use VPN client CLI/API
+        - Authenticate user
+        - Verify connectivity
+    #>
+    Write-APilotLog "Connecting to VPN..."
+    # Placeholder: simulate success
+    return $true
+}
+
+# endregion
+
+# region: Certificates
+
+function Request-TempCert {
+    param(
+        [Parameter(Mandatory)][object]$DIT
+    )
+    <#
+    .SYNOPSIS
+        Requests temporary onboarding certificate.
+    .DESCRIPTION
+        In a real implementation, this would:
+        - Call PKI API
+        - Issue short-lived cert bound to DIT
+    #>
+    Write-APilotLog "Requesting temporary certificate..."
+    $response = Invoke-APilotAPI -Method "POST" -Endpoint "/cert/temp/issue" -Body $DIT
+    if ($response.status -ne "ok") {
+        Write-APilotLog "Temporary certificate request failed." "ERROR"
+        throw "Temporary certificate request failed."
+    }
+    Write-APilotLog "Temporary certificate issued."
+    return $true
+}
+
+function Revoke-TempCert {
+    param(
+        [Parameter(Mandatory)][object]$DIT
+    )
+    <#
+    .SYNOPSIS
+        Revokes temporary certificate.
+    .DESCRIPTION
+        In a real implementation, this would:
+        - Call PKI API to revoke cert
+    #>
+    Write-APilotLog "Revoking temporary certificate..."
+    $response = Invoke-APilotAPI -Method "POST" -Endpoint "/cert/temp/revoke" -Body $DIT
+    Write-APilotLog "Temporary certificate revoked."
+    return $true
+}
+
+function Request-PermanentCert {
+    param(
+        [Parameter(Mandatory)][object]$DIT
+    )
+    <#
+    .SYNOPSIS
+        Requests permanent device certificate.
+    .DESCRIPTION
+        In a real implementation, this would:
+        - Call PKI API
+        - Issue long-lived cert for device trust
+    #>
+    Write-APilotLog "Requesting permanent certificate..."
+    $response = Invoke-APilotAPI -Method "POST" -Endpoint "/cert/permanent/issue" -Body $DIT
+    if ($response.status -ne "ok") {
+        Write-APilotLog "Permanent certificate request failed." "ERROR"
+        throw "Permanent certificate request failed."
+    }
+    Write-APilotLog "Permanent certificate issued."
+    return $true
+}
+
+# endregion
+
+# region: Domain Join
+
+function Invoke-DomainJoin {
+    param(
+        [Parameter(Mandatory)][object]$DIT
+    )
+    <#
+    .SYNOPSIS
+        Performs domain join via APilot backend.
+    .DESCRIPTION
+        In a real implementation, this would:
+        - Call backend which runs netdom/Add-Computer
+        - Handle legacy/hybrid/cloud modes
+    #>
+    Write-APilotLog "Initiating domain join..."
+    $response = Invoke-APilotAPI -Method "POST" -Endpoint "/domain/join" -Body $DIT
+    if ($response.status -ne "ok") {
+        Write-APilotLog "Domain join failed." "ERROR"
+        throw "Domain join failed."
+    }
+    Write-APilotLog "Domain join completed."
+    return $true
+}
+
+function Invoke-DomainRollback {
+    param(
+        [Parameter(Mandatory)][object]$DIT
+    )
+    <#
+    .SYNOPSIS
+        Rolls back domain join.
+    .DESCRIPTION
+        In a real implementation, this would:
+        - Remove computer object
+        - Reset local state
+    #>
+    Write-APilotLog "Rolling back domain join..."
+    $response = Invoke-APilotAPI -Method "POST" -Endpoint "/domain/rollback" -Body $DIT
+    Write-APilotLog "Domain rollback completed."
+    return $true
+}
+
+# endregion
+
+# region: Policies
+
+function Invoke-GPOSync {
+    <#
+    .SYNOPSIS
+        Forces GPO sync.
+    .DESCRIPTION
+        In a real implementation, this would:
+        - Run gpupdate /force
+        - Validate baseline applied
+    #>
+    Write-APilotLog "Applying GPO baseline..."
+    # Placeholder: simulate success
+    return $true
+}
+
+function Invoke-IntuneSync {
+    <#
+    .SYNOPSIS
+        Forces Intune sync.
+    .DESCRIPTION
+        In a real implementation, this would:
+        - Use Intune/Graph APIs
+        - Validate device compliance
+    #>
+    Write-APilotLog "Triggering Intune sync..."
+    # Placeholder: simulate success
+    return $true
+}
+
+# endregion
+
+# region: Cleanup
+
+function Invoke-OSHardening {
+    <#
+    .SYNOPSIS
+        Applies OS hardening.
+    .DESCRIPTION
+        In a real implementation, this would:
+        - Apply security baselines
+        - Disable unnecessary services
+    #>
+    Write-APilotLog "Applying OS hardening..."
+    # Placeholder: simulate success
+    return $true
+}
+
+function Invoke-AppCleanup {
+    <#
+    .SYNOPSIS
+        Removes unwanted apps.
+    .DESCRIPTION
+        In a real implementation, this would:
+        - Uninstall OEM bloatware
+        - Remove old Office versions
+    #>
+    Write-APilotLog "Cleaning up applications..."
+    # Placeholder: simulate success
+    return $true
+}
+
+function Invoke-FinalReboot {
+    <#
+    .SYNOPSIS
+        Performs final reboot.
+    .DESCRIPTION
+        In a real implementation, this would:
+        - Schedule reboot
+        - Inform user
+    #>
+    Write-APilotLog "Performing final reboot..."
+    # Placeholder: simulate success
+    return $true
+}
+
+# endregion
+
+# region: Email
+
+function Send-UserFinalEmail {
+    param(
+        [Parameter(Mandatory)][string]$UserEmail
+    )
+    <#
+    .SYNOPSIS
+        Sends final guidance email to user.
+    .DESCRIPTION
+        In a real implementation, this would:
+        - Use SMTP or Graph API
+        - Send standardized instructions
+    #>
+    Write-APilotLog "Sending final email to $UserEmail..."
+    $body = @"
+Hello,
+
+Your device has completed APilot onboarding and is now ready for use.
+
+Please follow these steps:
+1. Power on your device.
+2. Log in using your corporate email and password.
+3. Complete MFA when prompted.
+4. Wait for the desktop to fully load — policies and apps will finalize in the background.
+
+If anything looks unusual, contact IT Support and reference your ticket number.
+
+Thank you,
+IT Operations Team
+"@
+
+    # Placeholder: simulate success
+    Write-APilotLog "Final email prepared (not actually sent in skeleton)."
+    return $true
+}
+
+# endregion
+
+# region: ITSM
+
+function Update-ITSMTicket {
+    param(
+        [Parameter(Mandatory)][object]$DIT,
+        [Parameter(Mandatory)][string]$Status
+    )
+    <#
+    .SYNOPSIS
+        Updates ITSM ticket with APilot status.
+    .DESCRIPTION
+        In a real implementation, this would:
+        - Call ITSM API (ServiceNow, etc.)
+        - Attach checklist and logs
+    #>
+    Write-APilotLog "Updating ITSM ticket status to '$Status'..."
+    # Placeholder: simulate success
+    return $true
+}
+
+function Close-ITSMTicket {
+    param(
+        [Parameter(Mandatory)][object]$DIT
+    )
+    <#
+    .SYNOPSIS
+        Closes ITSM ticket after successful onboarding.
+    .DESCRIPTION
+        In a real implementation, this would:
+        - Call ITSM API to close ticket
+    #>
+    Write-APilotLog "Closing ITSM ticket..."
+    # Placeholder: simulate success
+    return $true
+}
+
+# endregion
+
+Export-ModuleMember -Function * -Alias *
+'''
