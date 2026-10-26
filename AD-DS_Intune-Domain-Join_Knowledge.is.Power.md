@@ -63,7 +63,7 @@ This opportunity is particularly strong in:
 - new and replacement device deployment
 - infrastructure and server onboarding
 - large organizations with strong CMDB and governance requirements
-- environments that need stronger auditable and rollback capability
+- environments that need stronger auditability and rollback capability
 
 ## Core product idea
 
