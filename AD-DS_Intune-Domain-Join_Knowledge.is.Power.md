@@ -63,7 +63,7 @@ This opportunity is particularly strong in:
 - new and replacement device deployment
 - infrastructure and server onboarding
 - large organizations with strong CMDB and governance requirements
-- environments that need stronger auditability and rollback capability
+- environments that need stronger auditable and rollback capability
 
 ## Core product idea
 
@@ -249,26 +249,6 @@ This should be framed as:
 - a bridge between identity validation, compliance, and operational execution
 
 It should not be framed as “a custom script replacement,” because that weakens the proposal and makes it sound like a local workaround rather than a real product opportunity.
-
-## Reference product narrative for Microsoft
-
-Suggested narrative:
-
-“Microsoft Intune should support a secure, identity-first onboarding and trust orchestration workflow for hybrid and remote Windows devices. The current onboarding model solves enrollment and policy management well, but it does not consistently enforce the trust gates needed for enterprise-grade onboarding in mixed AD DS + Entra ID environments. Customers need a stronger path that validates user identity, device identity, network context, policy readiness, and compliance before a device is trusted. APilot provides a product concept for that gap by extending Intune with secure onboarding orchestration, device identity validation, remote bootstrap, certificate lifecycle management, and rollback/quarantine controls.”
-
-## MVP proposal
-
-A realistic MVP for Microsoft could include:
-
-1. onboarding state workflow in Intune
-2. device identity collection and validation
-3. join mode selection logic
-4. remote bootstrap trigger
-5. compliance gate before productivity
-6. quarantine and rollback actions
-7. integration with CMDB or ITSM records
-
-This would create a strong first release without forcing a full enterprise platform redesign.
 
 ## Success criteria
 
