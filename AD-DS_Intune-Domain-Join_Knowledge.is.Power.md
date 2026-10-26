@@ -738,3 +738,87 @@ Install the APolit agent that will handle local inventory, VPN, certs, and join 
 
 06 - Run Plugin Inventory & Re-Validate DIT
 Use the plugin to perform a deeper inventory and confirm device idenitity again.
+'''Script calls local plugin API: http://localhost:port/api/inventory'''
+
+    Retrieve plugin inventory (serial, UUID, TPM, NICs, OS build)
+    Compare with initial DIT
+    '''Send final DIT to APilot backend ( POST /device/validate )
+    If mismatch ---> quarantine and stop
+
+07 - Bootstrap VPN Package & Temporary Certificate
+Prepare secure connectivity by installing a temporary device certificate and VPN client.
+'''Script calls APilot API: POST /vpn/bootstrap'''
+
+    Request VPN package (client + config) and temp cert
+    Download package to device
+    '''Install temporary cert via PowerShell:
+        Important-Certificate''' into LocalMachine\My
+    Install VPN client silenty (AnyConnect/GlobalProtect/etc.)
+    Log success/failure to APolot backend
+
+08 - Establish VPN Connection & Detect Network Context (Network Decision)
+Connect to VPN and determine if the device is on corporate or non-corporate network.
+'Script triggers VPN client with pre-configured profile'
+
+    '''Use command-line or API to start VPN (e.g., vpncli connect profile )'''
+    Wait for connection status - Connected
+    Run network test:
+        - Ping DCs
+        - Resolve AD DNS
+        - Reach PKI/CMDB endpoints
+    '''Call APilot Gateway API: POST /network/context''' with test results
+    '''Receive mode = CloudOnly | Hybrid | Legacy'''
+
+09 - Execute Domain Join via APilot Automation Engine (Core Join)
+Perform the actual domain join using backend APIs, not local privileged credentials.
+'''Script calls APilot API: POST /join/execute'''
+
+    Send DIT, mode, hostname, user UPN to backend
+    Backend performs:
+        AD DS join (Legacy/Hybrid)
+        Entra Join (Cloud/Hybrid)
+    '''Script monitors join status via: GET /join/status'''
+    If failure ---> trigger rollback ( POST /join/rollback ) and quarantine'''
+
+10 - Issue Permanent Device Certificate
+Replace temporary onboarding cert with a permanent trust certificate.
+'''Script calls PKI API via APilot: POST /cert/issue'''
+
+    Request permanent cert bound to DIT
+    Install cert into LocalMachine\My
+    Remove temporary cert
+    Log cert issuance to CMDB and APilot backend
+
+11 - Apply Policies (GPO + Intune)
+Ensure the device receives baseline security and configuration policies.
+'Script triggers policy sync commands'
+    '''For legacy/hybrid:
+        gpupdate /force'''
+    For cloud/hybrid:
+        Trigger Intune sync via WMI/PowerShell or Company Portal
+    '''Call APilot API: POST /policy/verify''' to confirm baseline applied
+    If policy failure ---> log and mark device as non-compliant
+
+12 - Perform Cleanup & OS Hardening
+Remove unwanted software, install required tools, and harden the OS.
+'Script runs local cleanup/hardening routines'
+
+    Uninstall OEM bloatware (list from APilot backend)
+    Remove old Office versions
+    Install lastest Office via Intune or Click-to-Run
+    Install security tools (AV/EDR/agent)
+    Apply OS hardening setttings (registry, services, firewall)
+    Log actions to APilot backend and CMDB
+
+13 - Final Reboot & Compliance Check (Pre-Final)
+Reboot the device and confirm it is fully compliant and ready for user login.
+'''Script executes Restart-Computer with delay'''
+
+    Schedule reboot with user notification
+    After reboot, script (or plugin) runs compliance check:
+        * Domain join status
+        * Cert presence
+        * Policy application
+        * Security tools running
+    '''Call APilot API: POST /device/compliance''' '''---> expect status = compliant'''
+    If not compliant ---> flag in CMDB and ITSM
