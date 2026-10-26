@@ -1,1244 +1,311 @@
-# APilot: Automated Domain Join and Device Enrollment Framework
+# APilot: Intune Secure Hybrid Onboarding and Trust Orchestration
 
-This document was drafted and refined with assistance from GitHub Copilot to help structure a clear, practical, and enterprise-ready onboarding model for Windows devices. It is intended to support real operational use by IT, security, and engineering teams with a strong emphasis on identity validation, policy enforcement, and reducing human error during onboarding.
+This document was drafted and refined with assistance from GitHub Copilot to help structure a Microsoft-aligned product concept for secure Windows onboarding in complex enterprise environments. The intent is to frame APilot as a product extension of the Intune and Entra ecosystem, not as a custom workaround or isolated script-based process.
 
 ## Executive summary
 
-APilot is a modern onboarding framework for device enrollment and domain join across legacy AD DS, hybrid AD DS + Entra ID, and cloud-only Entra ID environments. The design is built around one core principle: no device should be granted trust until its identity, hardware posture, security state, and compliance state are validated.
+APilot is a Microsoft-aligned concept for secure, identity-first onboarding and trust orchestration for Windows devices across AD DS, Entra ID, Intune, and hybrid enterprise environments. The idea is to provide a policy-driven onboarding flow that validates identity, device health, and compliance before a device is trusted to join the domain, register to Entra ID, or become productive.
 
-The framework brings together the critical requirements of modern enterprise operations:
+This is not a replacement for Intune. It is a product extension that strengthens Intune’s operational value for real-world enterprise environments where:
 
-- secure identity-first onboarding
-- consistent device readiness checks
-- automated domain join and certificate trust
-- policy-driven compliance and auditability
-- safe rollback and quarantine when the process fails
+- users join devices remotely
+- organizations use hybrid identity and mixed trust models
+- AD DS, Entra ID, PKI, VPN, compliance, and CMDB all need to work together
+- onboarding quality depends on process consistency, not just technical capability
+- human error is one of the biggest causes of failure and operational drift
 
-APilot is designed for real-world conditions where users may be remote, networks may be unreliable, and support teams must be able to intervene without compromising security or creating operational drift.
+The central value proposition is simple: reduce human error, increase consistency, and ensure trust is granted only after identity, device posture, and compliance are validated.
 
-## Scope
+## Why this matters to real customers
 
-APilot applies to:
+Enterprise customers continue to struggle with onboarding complexity in mixed environments. Even when the right technologies exist, many organizations still depend on manual steps, technician guidance, local scripts, and custom automation to complete onboarding safely.
 
-- laptops and desktops
-- physical servers and virtual machines
-- hybrid and cloud-managed environments
-- remote and on-premises onboarding scenarios
+Typical customer pain:
 
-APilot explicitly excludes:
+- remote users receive devices without network access and without a domain trust path
+- hybrid AD + Entra environments create inconsistent device states and policy drift
+- technicians use ad hoc scripts or manual checks causing variable quality
+- devices join too early, before identity, compliance, and certificates are ready
+- failed onboarding leaves devices in a partially trusted or partially compliant state
+- CMDB and ITSM records are inaccurate, leaving support and security teams without a reliable source of truth
+- onboarding failures create a huge operational burden in helpdesk, identity, and endpoint teams
 
-- phones and tablets
-- unmanaged or personal devices
-- environments that cannot validate identity or policy state
+These are not theoretical concerns. They are common in real enterprise IT operations and directly affect security, productivity, and support cost.
 
-## Audience
+## Product framing for Microsoft
 
-This document is intended for:
+The right framing is:
 
-- IT architects
-- identity and access engineers
-- endpoint engineering teams
-- helpdesk and field technicians
-- security operations teams
-- administrators managing AD DS, Entra ID, Intune, PKI, and compliance
+APilot as an Intune Secure Hybrid Onboarding and Trust Orchestration concept.
 
-## Design goals
+This positions APilot as a practical product extension that complements the Microsoft endpoint ecosystem rather than competing with it. It fits naturally with:
 
-APilot is built to achieve the following:
+- Microsoft Intune
+- Windows Autopilot
+- Microsoft Entra ID
+- Hybrid identity with AD DS
+- Conditional Access
+- compliance policies
+- device attestation and TPM-based trust
+- certificate lifecycle management
+- enterprise governance and ITSM integration
 
-- reduce onboarding complexity
-- improve consistency across environments
-- eliminate manual misconfiguration risk
-- enforce strong identity validation before trust is granted
-- support both remote and local onboarding flows
-- integrate with CMDB and ITSM systems
-- support rollback, quarantine, and safe recovery
+This framing makes the concept credible to Microsoft engineering and product teams because it is a business and operational improvement on top of existing investments, not a custom workaround or a separate platform.
 
-## Core concept
+## Product opportunity
 
-APilot is more than a script or a join workflow. It is an operational model for how a device is validated, enrolled, trusted, and brought into a compliant state.
+Intune is already the center of modern Windows device lifecycle management, but the onboarding experience still varies widely across enterprise environments. The biggest opportunity is to add secure orchestration and trust gating before a device is allowed to move from “new” to “productive.”
 
-The model includes the following key services:
+This opportunity is particularly strong in:
 
-- APilot Web Portal: invitation management, MFA validation, and orchestration entry
-- APilot Plugin: local device validation and endpoint setup tasks
-- APilot Gateway: network posture detection and join routing decisions
-- APilot Automation Engine: join orchestration and policy enforcement
-- APilot CMDB: authoritative device identity and lifecycle state
-- APilot PKI: temporary and permanent device certificate issuance
-- Directory Services: AD DS and Entra ID
-- Policy and compliance services: GPO, Intune, Conditional Access, and compliance evaluation
+- hybrid identity environments
+- remote onboarding scenarios
+- new and replacement device deployment
+- infrastructure and server onboarding
+- large organizations with strong CMDB and governance requirements
+- environments that need stronger auditability and rollback capability
 
-## Decision framework
+## Core product idea
 
-The correct onboarding path depends on the device, environment, and user location.
+Add an Intune capability for secure hybrid onboarding and trust orchestration that would provide the following:
 
-| Join Type | Best For | Key Requirements | Management Model | Notes |
-| --- | --- | --- | --- | --- |
-| Modern AD DS join | Classic AD environments | Windows Pro/Ent/Edu, DC reachable | GPO, SCCM | Traditional domain join model |
-| Hybrid Azure AD / Entra join | Enterprises using AD + cloud | AD DS + Entra ID + Entra Connect | GPO + Intune | Best for mixed environments |
-| Entra ID join | Cloud-first organizations | Entra ID tenant | Intune | No AD DS dependency |
-| Offline domain join | Imaging and provisioning | djoin.exe, offline bootstrap | GPO | Useful for mass provisioning |
+- device identity validation before trust is granted
+- automatic determination of the correct join path
+- temporary trust and bootstrap flow for remote devices
+- integration with CMDB or asset inventory validation
+- certificate issuance and lifecycle validation
+- policy verification before the device becomes productive
+- quarantine and rollback for failed onboarding states
+- audit timing and lifecycle traceability for support and governance
 
-### Join decision matrix
+In short, Intune would not just enroll a device. It would orchestrate the safe transition from untrusted device to compliant, trusted endpoint.
 
-| Scenario | Recommended mode | Discussion |
-| --- | --- | --- |
-| Device is on corporate LAN and AD DS is authoritative | Legacy AD DS join | Use local AD trust model |
-| Company uses AD DS and Microsoft 365 with cloud identity | Hybrid join | Use AD DS + Entra ID |
-| Company is cloud-first and has no AD DS dependency | Entra ID join | Use Intune-driven enrollment |
-| User is remote and has never joined the domain before | Remote onboarding flow | Use secure bootstrap, VPN, certificate, and join workflow |
-| Server or VM needs privileged onboarding | APilot-Server flow | Different identity and policy model |
+## Design principles
 
-## Architectural principles
-
-APilot follows seven core principles:
+APilot follows the following principles:
 
 1. Identity-first onboarding
-2. Device Identity Token (DIT) as the foundation of trust
-3. Zero Trust enforcement
+2. Device trust before domain trust
+3. Zero Trust enforcement during onboarding
 4. Network-aware routing decisions
-5. Certificate-based trust
-6. Vendor-neutral integration
-7. Full observability and rollback
+5. Policy-driven compliance gates
+6. Strong auditability and rollback
+7. Operational consistency across teams and locations
 
-## High-level architecture
+## Key customer value
 
-### 1. APilot Web Portal
+The proposed value to Microsoft customers is clear:
 
-Responsibilities:
+- fewer failed onboarding events
+- lower helpdesk burden
+- less dependence on manual scripts and technician memory
+- stronger security during onboarding
+- lower operational drift between policy, identity, and device state
+- faster remote readiness for users and admins
+- better alignment between ITSM, CMDB, compliance, and device lifecycle
 
-- MFA authentication
-- invitation validation
-- hostname confirmation
-- VPN bootstrap initiation
-- certificate issuance requests
-- join orchestration approval
+## Microsoft ecosystem alignment
 
-### 2. APilot Plugin
+### Intune
 
-Responsibilities:
+Intune is the natural control plane for device compliance, policy, and device lifecycle. APilot complements Intune by adding a structured onboarding orchestration layer that reduces human error and ensures a consistent device state before the user becomes productive.
 
-- device inventory and hardware validation
-- CMDB validation
-- VPN package and temporary certificate installation
-- join execution coordination
-- cleanup and hardening tasks
-- status reporting back to the control plane
+### Microsoft Entra ID
 
-### 3. APilot Gateway
+APilot aligns with Entra ID by validating identity and enforcing Conditional Access, user trust, and device trust before the endpoint is allowed to proceed.
 
-Responsibilities:
+### Windows Autopilot
 
-- detect corporate vs non-corporate network context
-- validate connectivity to AD DS, PKI, and CMDB
-- decide join route
-- issue short-lived onboarding trust tokens
+APilot should be viewed as an extension of the Autopilot vision, especially for customers with complex hybrid environments and remote onboarding needs. It complements Autopilot by adding a stronger trust gate, deeper identity validation, and secure remote bootstrap logic.
 
-### 4. APilot Automation Engine
+### AD DS and hybrid identity
 
-Responsibilities:
+Many enterprises do not live in a pure cloud-only model. APilot supports the real-world hybrid model where AD DS remains relevant while Entra ID and Intune are active components of the trust fabric.
 
-- orchestrate the domain join and enrollment process
-- apply GPO and Intune policies
-- write state back to CMDB
-- trigger rollback or quarantine when required
+### Compliance and governance
 
-### 5. APilot CMDB
+The concept directly supports enterprise governance by ensuring that onboarding is not treated as a simple device registration event. It is a controlled trust transition tied to security, policy, compliance, and operational traceability.
 
-Responsibilities:
+## Customer problem statements
 
-- authoritative device identity
-- lifecycle state tracking
-- assigned user mapping
-- compliance state
-- join mode and certificate state
-- quarantine and recovery tracking
+These are the real pain statements a Microsoft product team could act on:
 
-### 6. APilot PKI
+- “We still rely on manual admin steps and custom scripts for onboarding, and the process differs by technician and site.”
+- “We do not trust a device until we validate the identity, the user, and the device state. Current onboarding flows are too loose.”
+- “Hybrid environments are becoming difficult to operate consistently across AD DS, Entra ID, Intune, certificates, and compliance.”
+- “Remote onboarding creates a poor experience because the device is not on the corporate network when trust is established.”
+- “When onboarding fails, the device often remains partially configured and partially trusted, which creates risk and support issues.”
+- “We need better lifecycle control, not just device registration.”
 
-Responsibilities:
+## Proposed capabilities
 
-- temporary onboarding certificates
-- permanent device certificates
-- certificate validation and revocation
-- support for SCEP/NDES or Intune connectors
+### 1. Identity-first onboarding gate
 
-## Security model
+Before a device is trusted, Intune should validate:
 
-### Identity security
+- user identity
+- device identity token
+- inventory or CMDB match
+- intended join mode
+- compliance posture
+- environmental context
 
-- MFA is required for critical onboarding steps
-- identity validation occurs before trust is granted
-- Conditional Access is enforced during onboarding
-- account and device trust are evaluated separately
+If validation fails, the device should be quarantined or blocked from progressing.
 
-### Device security
+### 2. Device Identity Token (DIT)
 
-The Device Identity Token (DIT) should include:
+Intune should support a strongly structured identity model for devices based on:
 
 - serial number
 - BIOS UUID
 - TPM identity
 - hardware hash
-- VM GUID, if applicable
-- MAC addresses, used as secondary identifiers only
-- operating system build and edition
+- OS version and edition
+- VM GUID when applicable
+- MAC addresses as secondary identifiers
 
-The DIT must be treated as the device’s primary trust anchor before any certificate or join action is performed.
+This would create a stronger trust model than the current device-registration model alone.
 
-### Certificate security
+### 3. Join mode selection
 
-Temporary onboarding certificates:
+APilot should automatically evaluate the correct trust path, for example:
 
-- short-lived, typically 15 minutes
-- non-exportable
-- bound to DIT
-- issued only after MFA and CMDB validation
-- revoked automatically when onboarding fails
+- AD DS only
+- hybrid AD + Entra join
+- Entra ID join
+- remote bootstrap mode
+- server or VM onboarding path
 
-Permanent certificates:
+This can be driven by policy, tenant configuration, network conditions, and device classification.
 
-- issued after successful join and validation
-- used for VPN, Wi-Fi, device trust, and Conditional Access
-- managed through the standard certificate lifecycle process
+### 4. Remote bootstrap and secure trust flow
 
-### Network security
+For remote users, the system should support a bootstrap process that:
 
-- VPN profiles are signed and validated
-- pre-logon connectivity may be enabled when required
-- cloud-only mode can skip VPN when appropriate
-- routing decisions are based on validated connectivity and trust checks
+- validates identity
+- installs onboarding package or plugin
+- validates device posture
+- installs temporary certificate
+- establishes secure VPN or network trust path
+- detects network context
+- continues onboarding only after connectivity and trust checks pass
 
-### Operational security
+### 5. Temporary and permanent certificate lifecycle
 
-- plugin execution should be constrained and auditable
-- privileged actions should be orchestrated centrally, not by local user-operated scripts alone
-- all join and policy events must be logged
-- failures must trigger quarantine and review by an administrator
+Intune should support a stronger certificate journey:
 
-## APilot lifecycle phases
+- temporary onboarding certificates
+- permanent device trust certificates
+- certificate issuance validation
+- expiration checks
+- revocation and renewal support
+- quarantine when cert state is invalid
 
-### Phase 1: Pre-registration
+### 6. Compliance before productivity
 
-Purpose: bind device identity to the correct user and policy baseline.
+Before a user is allowed to operate on the device, the flow should validate that:
 
-Tasks:
-
-- validate CMDB presence
-- collect hardware identity
-- assign join mode
-- prepare OU structure, PKI, and VPN profile
-- ensure policy baselines are ready
-
-### Phase 2: User invitation and validation
-
-Purpose: prove the correct user is acting on the correct device.
-
-Tasks:
-
-- issue invitation
-- require MFA
-- validate user UPN
-- confirm device association
-
-### Phase 3: Connectivity bootstrap
-
-Purpose: establish secure connectivity before granting trust.
-
-Tasks:
-
-- install plugin
-- validate DIT
-- install temporary certificate
-- install VPN package
-- connect to VPN
-- confirm network context
-
-### Phase 4: Domain and identity trust
-
-Purpose: perform the join and establish permanent trust.
-
-Tasks:
-
-- perform AD DS and/or Entra join
-- issue permanent certificate
-- validate policies
-- apply compliance controls
-
-### Phase 5: Cleanup and productivity setup
-
-Purpose: complete the baseline and prepare the endpoint for use.
-
-Tasks:
-
-- harden OS
-- remove unwanted applications
-- install required business software
-- finalize user login experience
-- record successful completion in CMDB and ITSM
-
-## Component model
-
-### Core components
-
-- User device
-  - APilot Plugin
-  - VPN client
-  - certificate store
-- APilot Web Portal
-  - identity validation
-  - plugin delivery
-  - VPN bootstrap
-- APilot Gateway
-  - network detection
-  - certificate issuance coordination
-- APilot Automation Engine
-  - join operations
-  - policy enforcement
-  - rollback logic
-- CMDB
-  - device identity
-  - state tracking
-- PKI
-  - temporary and permanent certificates
-- Directory Services
-  - AD DS
-  - Entra ID
-
-## CMDB integration specification
-
-### Requirements
-
-The CMDB must contain:
-
-- Device Identity Token (DIT)
-- assigned user
-- device type
-- join mode
-- compliance state
-- certificate state
-- domain-join state
-- policy state
-- quarantine state
-
-### Write-back events
-
-APilot should update the CMDB for:
-
-- device validated
-- temporary cert issued
-- VPN connected
-- join completed
-- permanent cert issued
-- policies applied
-- cleanup completed
-- device compliant
-- device quarantined
-
-### Governance
-
-- the CMDB is the authoritative state store
-- no device can proceed without a valid CMDB match
-- drift or mismatch must trigger quarantine
-- all state transitions must be auditable
-
-## PKI design
-
-### Temporary certificates
-
-- valid for a limited time
-- bound to DIT
-- installed only after MFA and CMDB validation
-- automatically revoked on failure
-- used only for onboarding trust
-
-### Permanent certificates
-
-- issued after successful join and validation
-- used for VPN, network access, and device trust
-- renewed through the standard certificate lifecycle process
-
-### Infrastructure
-
-- SCEP/NDES or Intune PKI connector
-- dedicated onboarding certificate template
-- permanent trust certificate template
-- CRL/OCSP reachability verification
-
-## Server track specification
-
-Servers and virtual machines require a different onboarding track because they do not follow the user-driven enrollment model.
-
-### Server onboarding flow
-
-1. administrator registers the server in the CMDB
-2. administrator triggers APilot-Server onboarding
-3. plugin is delivered through the admin portal
-4. DIT is collected and validated
-5. hostname is approved
-6. temporary certificate is issued
-7. VPN bootstrap occurs if remote
-8. domain join is executed
-9. permanent certificate is issued
-10. server baseline policies are applied
-11. CMDB is updated
-12. server enters a compliant state
-
-### Server policy model
-
-- no user-based onboarding policy
-- no productivity application baseline
-- strict GPO baseline
-- strict certificate requirements
-- strict CMDB governance
-
-## Roles and responsibilities
-
-### Administrators
-
-- manage the APilot portal
-- approve device registrations
-- validate CMDB entries
-- monitor onboarding sessions
-- handle escalations
-- manage PKI and certificate lifecycle
-- oversee domain join operations
-- maintain baseline policies
-- manage quarantine and rollback
-
-### Technicians
-
-- assist users during onboarding
-- validate physical device identity
-- ensure device readiness
-- perform manual interventions when required
-- execute server or VM onboarding flows
-- document incidents and failures
-
-## Pre-onboarding requirements
-
-Before onboarding begins, administrators should ensure that the following are in place:
-
-### CMDB record exists
-
-Each device must have a record containing:
-
-- DIT
-- serial number
-- BIOS UUID
-- TPM identity
-- VM GUID where applicable
-- assigned user
-- device type
-- join mode
-- compliance requirements
-- certificate requirements
-
-### AD DS OU structure prepared
-
-```text
-Corp.company.com
-    /Users
-    /Computers
-    /Devices
-        /CAN (Local)
-            /Laptops
-            /Desktops
-            /Servers
-            /VirtualMachines
-```
-
-### PKI ready
-
-- onboarding template configured
-- permanent certificate template configured
-- SCEP/NDES or Intune connector operational
-- CRL/OCSP reachable
-
-### VPN infrastructure ready
-
-- device tunnel profile configured
-- user tunnel profile configured
-- pre-logon support enabled when required
-- signed configuration packages available
-
-### Policy baselines ready
-
-- GPO baseline for legacy or hybrid environments
-- Intune baseline for cloud or hybrid environments
-- Conditional Access policies configured
-- compliance rules enabled
-
-## User onboarding flow
-
-### Step 1: Invitation sent
-
-The administrator triggers an invitation through the APilot portal.
-
-### Step 2: User opens the invitation on the target device
-
-The invitation must be opened on the same device being onboarded.
-
-### Step 3: MFA authentication
-
-The user authenticates using:
-
-- corporate email
-- password
-- MFA method such as Authenticator, SMS, or FIDO
-
-### Step 4: Plugin download and installation
-
-The portal delivers the APilot plugin. The plugin validates:
-
-- DIT collection
-- CMDB validation
-- device readiness
-- OS compatibility
-- disk space
-- network access
-
-### Step 5: VPN bootstrap
-
-The portal triggers VPN onboarding and installs a temporary certificate and client package.
-
-### Step 6: VPN connection
-
-The plugin verifies:
-
-- corporate vs non-corporate network
-- AD reachability
-- PKI reachability
-- CMDB connectivity
-
-### Step 7: Join execution
-
-APilot selects the proper path:
-
-- cloud-only → Entra join
-- hybrid → AD DS + Entra
-- legacy → AD DS only
-
-### Step 8: Permanent certificate issuance
-
-The PKI service issues the permanent device certificate.
-
-### Step 9: Policy application
-
-- legacy or hybrid: GPO baseline applied
-- cloud or hybrid: Intune baseline applied
-- Conditional Access enforced
-- compliance rules evaluated
-
-### Step 10: Cleanup and hardening
-
-The plugin removes unwanted software, installs required tooling, applies hardening, and finalizes the endpoint for use.
-
-### Step 11: Final authentication
-
-The user logs in with corporate credentials and MFA. The device is ready only after compliance checks pass.
-
-## Operational runbook
-
-### Administrator tasks
-
-#### Monitor onboarding session
-
-Administrators review:
-
-- plugin status
-- VPN status
-- certificate issuance
-- domain join logs
-- policy application
-- CMDB updates
-
-#### Validate CMDB write-back
-
-Confirm that the CMDB includes:
-
-- validated device
-- temporary cert issued
-- VPN connected
-- join completed
-- permanent cert issued
-- policies applied
-- compliant state
-- quarantine state when required
-
-#### Handle failures
-
-If any step fails:
-
-- quarantine the device
-- revoke temporary certificate
-- disable VPN profile
-- update CMDB
-- notify user and technician
-- review logs
-- trigger rollback or restart
-
-#### Rollback procedure
-
-Rollback removes or resets:
-
-- certificates
-- VPN profiles
-- domain join state
-- plugin state
-- CMDB state
-- compliance state
-
-## Technician runbook
-
-### Validate physical device
-
-Technician checks:
-
-- serial number
-- BIOS UUID
-- TPM presence
-- network adapters
-- OS version
-- hardware readiness
-
-### Assist user
-
-Technicians may help with:
-
-- MFA issues
-- plugin installation
-- VPN authentication
-- hostname confirmation
-- reboots
-- policy delays
-
-### Manual fallback
-
-If APilot automation is not available or fails, the technician may trigger a manual join through the APilot backend while the plugin continues to manage certificates and cleanup.
-
-### Incident documentation
-
-The technician logs:
-
-- device identity
-- failure point
-- actions taken
-- outcome
-- time to onboard
-
-## Troubleshooting guide
-
-### MFA failure
-
-- reset MFA
-- validate identity provider state
-- check network connectivity
-
-### Plugin failure
-
-- check OS version
-- check disk space
-- check antivirus interference
-- reinstall plugin
-
-### VPN failure
-
-- validate temporary cert
-- validate VPN profile
-- review firewall and network restrictions
-
-### Domain join failure
-
-- verify DC reachability
-- verify DNS health
-- validate CMDB record and DIT match
-- validate certificate chain and time sync
-- trigger rollback
-
-### Policy failure
-
-- force GPO update
-- force Intune sync
-- confirm compliance rules are valid
-
-## Quarantine handling
-
-A device should enter quarantine when:
-
-- CMDB mismatch occurs
-- certificate issuance fails
-- VPN connection fails
-- domain join fails
-- policy enforcement fails
-- security anomaly is detected
-
-Quarantine actions include:
-
-- block domain join
-- block certificate issuance
-- block VPN access
-- notify admin and user
-- require technician intervention
-- require review before authorization is restored
-
-## Compliance verification
-
-A device is considered compliant only when:
-
-- join completes successfully
-- the permanent certificate is installed
-- policies are applied
-- CMDB is updated
-- Conditional Access passes
+- join state is correct
+- policies have been applied
+- security tools are installed and healthy
+- certificate state is valid
+- compliance state is healthy
 - no quarantine flags remain
-- security tools are installed
-- Office is installed
-- OS hardening is complete
 
-## APilot step-by-step operational flow
+### 7. Quarantine and rollback
 
-The following flow reflects the operational sequence the automation should implement. It prioritizes consistency, validation, and reduction of human error.
+A failed join or onboarding action should not leave the device in an ambiguous state. The system should support:
 
-### 01 - Start APilot interactive session
+- quarantine state with restricted access
+- rollback of join and certificate actions
+- controlled recovery path for IT or technician intervention
+- audit record tied to support ticket or CMDB record
 
-Initialize the onboarding script and validate technician identity.
+### 8. Auditability and lifecycle traceability
 
-Required inputs:
+APilot should provide a clear onboarding timeline with stage-level status and reasons for failure, including:
 
-- ITSM ticket ID
-- user UPN
-- device type
-- technician session identity
+- validation stage
+- invitation stage
+- MFA stage
+- plugin stage
+- VPN bootstrap stage
+- join stage
+- certificate stage
+- policy stage
+- compliance stage
 
-### 02 - Validate CMDB record and DIT
+This is critical for enterprise support and governance.
 
-Before any join action occurs, validate the device in the CMDB and collect the DIT.
+## Product extension, not workaround
 
-```powershell
-function Get-DeviceIdentityToken {
-    [CmdletBinding()]
-    param()
+The strongest case for this idea is that it is not a workaround for missing capabilities. It is an operational improvement to what Microsoft already offers.
 
-    $bios = Get-CimInstance -ClassName Win32_BIOS -ErrorAction Stop
-    $system = Get-CimInstance -ClassName Win32_ComputerSystemProduct -ErrorAction Stop
-    $os = Get-CimInstance -ClassName Win32_OperatingSystem -ErrorAction Stop
-    $adapters = @(Get-NetAdapter -ErrorAction SilentlyContinue |
-        Where-Object { $_.Status -eq 'Up' } |
-        Select-Object -ExpandProperty MacAddress)
+This should be framed as:
 
-    $tpm = $null
-    try {
-        $tpm = Get-CimInstance -Namespace 'root\cimv2\security\microsofttpm' -ClassName Win32_Tpm -ErrorAction Stop
-    }
-    catch {
-        $tpm = $null
-    }
+- a natural extension of Intune and Windows Autopilot
+- a better onboarding lifecycle for hybrid and remote enterprise devices
+- a security and governance improvement for complex identity environments
+- a bridge between identity validation, compliance, and operational execution
 
-    return [pscustomobject]@{
-        SerialNumber = $bios.SerialNumber
-        BiosUuid     = $system.UUID
-        MacAddresses = $adapters
-        TpmPresent   = [bool]$tpm
-        OsCaption    = $os.Caption
-        OsVersion    = $os.Version
-        CollectedAt  = (Get-Date).ToString('o')
-    }
-}
-```
+It should not be framed as “a custom script replacement,” because that weakens the proposal and makes it sound like a local workaround rather than a real product opportunity.
 
-Validation checks:
+## Reference product narrative for Microsoft
 
-- DIT must be complete
-- DIT must match the CMDB entry
-- the device must be assigned to the correct user
-- mismatches must stop onboarding and trigger quarantine
+Suggested narrative:
 
-### 03 - Trigger invitation and portal link
+“Microsoft Intune should support a secure, identity-first onboarding and trust orchestration workflow for hybrid and remote Windows devices. The current onboarding model solves enrollment and policy management well, but it does not consistently enforce the trust gates needed for enterprise-grade onboarding in mixed AD DS + Entra ID environments. Customers need a stronger path that validates user identity, device identity, network context, policy readiness, and compliance before a device is trusted. APilot provides a product concept for that gap by extending Intune with secure onboarding orchestration, device identity validation, remote bootstrap, certificate lifecycle management, and rollback/quarantine controls.”
 
-If there is no valid existing invitation, create one bound to:
+## MVP proposal
 
-- user UPN
-- DIT
-- ticket ID
+A realistic MVP for Microsoft could include:
 
-The invitation should be logged to the backend and CMDB.
+1. onboarding state workflow in Intune
+2. device identity collection and validation
+3. join mode selection logic
+4. remote bootstrap trigger
+5. compliance gate before productivity
+6. quarantine and rollback actions
+7. integration with CMDB or ITSM records
 
-### 04 - Confirm MFA and portal authentication
+This would create a strong first release without forcing a full enterprise platform redesign.
 
-Check that the user has completed MFA and portal authentication.
+## Success criteria
 
-Recommended practices:
+A successful implementation would be measured by:
 
-- enforce a timeout
-- stop the process if MFA is not completed
-- log failures to ITSM and CMDB
+- fewer onboarding failures
+- lower helpdesk and technician effort
+- lower time-to-productivity for new devices
+- reduced human error and inconsistent technician behavior
+- improved compliance readiness and security posture
+- more consistent hybrid environment operations
+- faster support and audit response
 
-### 05 - Deploy the APilot plugin
+## Final recommendation
 
-Install the plugin silently and validate successful execution.
+If the goal is to make Microsoft take this seriously, the best strategy is to present APilot as:
 
-```powershell
-function Install-ApilotPlugin {
-    [CmdletBinding()]
-    param(
-        [Parameter(Mandatory)]
-        [string]$DownloadUrl,
+- a Microsoft-aligned enterprise onboarding improvement concept
+- a secure hybrid device onboarding and trust orchestration idea
+- an extension of Intune, Entra ID, Windows Autopilot, and enterprise governance
+- a real customer pain reduction concept, not a custom workaround
 
-        [Parameter()]
-        [string]$InstallArgs = '/qn /norestart'
-    )
-
-    $tempDir = Join-Path $env:TEMP 'APilot'
-    New-Item -ItemType Directory -Force -Path $tempDir | Out-Null
-
-    $packagePath = Join-Path $tempDir 'APilotPlugin.msi'
-    Invoke-WebRequest -Uri $DownloadUrl -OutFile $packagePath -UseBasicParsing
-
-    $process = Start-Process -FilePath 'msiexec.exe' -ArgumentList "/i `"$packagePath`" $InstallArgs" -Wait -PassThru -NoNewWindow
-
-    if ($process.ExitCode -ne 0) {
-        throw "APilot plugin installation failed with exit code $($process.ExitCode)."
-    }
-
-    return $true
-}
-```
-
-### 06 - Re-validate DIT after plugin install
-
-The plugin should perform a deeper inventory and verify the endpoint before trust is granted.
-
-### 07 - Bootstrap VPN package and temporary certificate
-
-The system should:
-
-- install the temporary certificate into LocalMachine\My
-- install the signed VPN client
-- validate installation
-- log the outcome
-
-### 08 - Connect VPN and detect network context
-
-The automation should perform network validation and decide whether to use:
-
-- CloudOnly
-- Hybrid
-- Legacy
-
-This phase must confirm that the endpoint can reach:
-
-- AD DS
-- PKI
-- CMDB
-- required policy services
-
-### 09 - Execute domain join
-
-The automation should trigger join orchestration through the backend, not by manually running local privileged commands.
-
-```powershell
-function Invoke-ApilotJoin {
-    [CmdletBinding()]
-    param(
-        [Parameter(Mandatory)]
-        [pscustomobject]$DeviceIdentity,
-
-        [Parameter(Mandatory)]
-        [ValidateSet('CloudOnly', 'Hybrid', 'Legacy')]
-        [string]$JoinMode,
-
-        [Parameter()]
-        [string]$HostName = $env:COMPUTERNAME
-    )
-
-    $payload = [ordered]@{
-        serialNumber = $DeviceIdentity.SerialNumber
-        biosUuid     = $DeviceIdentity.BiosUuid
-        hostName     = $HostName
-        joinMode     = $JoinMode
-        timestamp    = (Get-Date).ToString('o')
-    }
-
-    # Placeholder for a real backend API call
-    # Invoke-RestMethod -Method Post -Uri 'https://apilot-backend.local/api/join/execute' -Body ($payload | ConvertTo-Json)
-
-    Write-Host "Join orchestration invoked for mode '$JoinMode'."
-    return $true
-}
-```
-
-### 10 - Issue permanent certificate
-
-After successful join, request and install the permanent device certificate. Remove the temporary certificate only after validation completes.
-
-### 11 - Apply policies and compliance controls
-
-The automation should enforce:
-
-- GPO baseline for AD-based environments
-- Intune baseline for hybrid and cloud-managed environments
-- Conditional Access rules
-- device compliance evaluation
-
-### 12 - Perform cleanup and OS hardening
-
-The script should:
-
-- remove OEM bloatware
-- uninstall stale Office versions
-- install required business software
-- deploy approved security agents
-- apply the OS hardening baseline
-- schedule or perform reboot
-
-### 13 - Final reboot and compliance verification
-
-The device should only be marked compliant after:
-
-- domain membership is validated
-- certificate presence is confirmed
-- policy state is verified
-- security tools are active
-- user is ready to sign in
-
-### 14 - Notify user and close ticket
-
-Send a final onboarding email and attach a completion checklist to the ticket.
-
-## Production-ready PowerShell skeleton
-
-The following PowerShell skeleton is written to reduce common human error. It uses explicit validation, consistent logging, centralized API calls, and a safe failure path.
-
-```powershell
-# APilot.psm1
-# Production-oriented skeleton for APilot onboarding automation.
-
-$ErrorActionPreference = 'Stop'
-Set-StrictMode -Version Latest
-
-$script:APilotConfig = @{
-    ApiBaseUrl      = 'https://apilot-backend.local/api'
-    CMDBBaseUrl     = 'https://cmdb.local/api'
-    ITSMBaseUrl     = 'https://itsm.local/api'
-    PKIBaseUrl      = 'https://pki.local/api'
-    LogPath         = 'C:\APilot\Logs\apilot.log'
-    VPNProfileName  = 'APilot-VPN'
-    MaxMfaWait      = 1800
-    JoinTimeout     = 900
-}
-
-function Write-APilotLog {
-    [CmdletBinding()]
-    param(
-        [Parameter(Mandatory)]
-        [string]$Message,
-
-        [ValidateSet('INFO', 'WARN', 'ERROR', 'DEBUG')]
-        [string]$Level = 'INFO'
-    )
-
-    $timestamp = Get-Date -Format 'yyyy-MM-dd HH:mm:ss'
-    $line = "[$timestamp] [$Level] $Message"
-
-    try {
-        New-Item -Path (Split-Path $script:APilotConfig.LogPath -Parent) -ItemType Directory -Force | Out-Null
-        Add-Content -Path $script:APilotConfig.LogPath -Value $line
-    }
-    catch {
-        Write-Host $line -ForegroundColor Yellow
-    }
-
-    Write-Host $line
-}
-
-function Invoke-APilotApi {
-    [CmdletBinding()]
-    param(
-        [Parameter(Mandatory)]
-        [ValidateSet('GET', 'POST', 'PUT', 'DELETE')]
-        [string]$Method,
-
-        [Parameter(Mandatory)]
-        [string]$Endpoint,
-
-        [Parameter()]
-        [object]$Body
-    )
-
-    $url = "$($script:APilotConfig.ApiBaseUrl)$Endpoint"
-    Write-APilotLog -Message "Calling APilot API: $Method $url" -Level DEBUG
-
-    try {
-        if ($null -ne $Body) {
-            $json = $Body | ConvertTo-Json -Depth 10
-            return Invoke-RestMethod -Method $Method -Uri $url -Body $json -ContentType 'application/json' -ErrorAction Stop
-        }
-
-        return Invoke-RestMethod -Method $Method -Uri $url -ErrorAction Stop
-    }
-    catch {
-        $message = $_.Exception.Message
-        Write-APilotLog -Message "APilot API call failed: $message" -Level ERROR
-        throw
-    }
-}
-
-function Test-IsAdministrator {
-    [CmdletBinding()]
-    param()
-
-    $identity = [Security.Principal.WindowsIdentity]::GetCurrent()
-    $principal = New-Object Security.Principal.WindowsPrincipal($identity)
-    return $principal.IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)
-}
-
-function Test-RequiredEnvironment {
-    [CmdletBinding()]
-    param()
-
-    if (-not (Test-IsAdministrator)) {
-        throw 'APilot onboarding must run as Administrator.'
-    }
-
-    if (-not (Get-Command Invoke-RestMethod -ErrorAction SilentlyContinue)) {
-        throw 'PowerShell REST support is unavailable.'
-    }
-
-    return $true
-}
-
-function Get-DeviceIdentityToken {
-    [CmdletBinding()]
-    param()
-
-    $bios = Get-CimInstance -ClassName Win32_BIOS -ErrorAction Stop
-    $computerSystem = Get-CimInstance -ClassName Win32_ComputerSystemProduct -ErrorAction Stop
-    $os = Get-CimInstance -ClassName Win32_OperatingSystem -ErrorAction Stop
-    $adapters = @(Get-NetAdapter -ErrorAction SilentlyContinue |
-        Where-Object { $_.Status -eq 'Up' } |
-        Select-Object -ExpandProperty MacAddress)
-
-    $tpm = $null
-    try {
-        $tpm = Get-CimInstance -Namespace 'root\cimv2\security\microsofttpm' -ClassName Win32_Tpm -ErrorAction Stop
-    }
-    catch {
-        $tpm = $null
-    }
-
-    return [pscustomobject]@{
-        SerialNumber = $bios.SerialNumber
-        BiosUuid     = $computerSystem.UUID
-        MacAddresses = $adapters
-        TpmPresent   = [bool]$tpm
-        OsCaption    = $os.Caption
-        OsVersion    = $os.Version
-        CollectedAt  = (Get-Date).ToString('o')
-    }
-}
-
-function Invoke-DITValidation {
-    [CmdletBinding()]
-    param(
-        [Parameter(Mandatory)]
-        [pscustomobject]$Dit
-    )
-
-    $response = Invoke-APilotApi -Method POST -Endpoint '/device/validate' -Body $Dit
-    if ($response.status -ne 'ok') {
-        throw 'DIT validation failed.'
-    }
-
-    return $true
-}
-
-function Invoke-CMDBCheck {
-    [CmdletBinding()]
-    param(
-        [Parameter(Mandatory)]
-        [pscustomobject]$Dit
-    )
-
-    $response = Invoke-APilotApi -Method GET -Endpoint "/cmdb/device?serial=$($Dit.SerialNumber)"
-    if (-not $response -or $response.status -ne 'found') {
-        throw 'CMDB record not found or invalid for this device.'
-    }
-
-    return $true
-}
-
-function Request-TemporaryCertificate {
-    [CmdletBinding()]
-    param(
-        [Parameter(Mandatory)]
-        [pscustomobject]$Dit
-    )
-
-    $response = Invoke-APilotApi -Method POST -Endpoint '/cert/temp/issue' -Body $Dit
-    if ($response.status -ne 'ok') {
-        throw 'Temporary certificate issuance failed.'
-    }
-
-    return $true
-}
-
-function Request-PermanentCertificate {
-    [CmdletBinding()]
-    param(
-        [Parameter(Mandatory)]
-        [pscustomobject]$Dit
-    )
-
-    $response = Invoke-APilotApi -Method POST -Endpoint '/cert/permanent/issue' -Body $Dit
-    if ($response.status -ne 'ok') {
-        throw 'Permanent certificate issuance failed.'
-    }
-
-    return $true
-}
-
-function Invoke-DomainJoin {
-    [CmdletBinding()]
-    param(
-        [Parameter(Mandatory)]
-        [pscustomobject]$Dit,
-
-        [Parameter(Mandatory)]
-        [ValidateSet('CloudOnly', 'Hybrid', 'Legacy')]
-        [string]$JoinMode
-    )
-
-    $payload = [ordered]@{
-        device = $Dit
-        joinMode = $JoinMode
-        timestamp = (Get-Date).ToString('o')
-    }
-
-    $response = Invoke-APilotApi -Method POST -Endpoint '/domain/join' -Body $payload
-    if ($response.status -ne 'ok') {
-        throw 'Domain join failed.'
-    }
-
-    return $true
-}
-
-function Update-CMDBState {
-    [CmdletBinding()]
-    param(
-        [Parameter(Mandatory)]
-        [pscustomobject]$Dit,
-
-        [Parameter(Mandatory)]
-        [ValidateSet('Validated', 'Quarantined', 'Compliant', 'Failed')]
-        [string]$State
-    )
-
-    $payload = [ordered]@{
-        device = $Dit
-        state = $State
-        timestamp = (Get-Date).ToString('o')
-    }
-
-    $response = Invoke-APilotApi -Method POST -Endpoint '/cmdb/update' -Body $payload
-    if ($response.status -ne 'ok') {
-        throw "CMDB state update to '$State' failed."
-    }
-
-    return $true
-}
-
-function Invoke-APilotOnboarding {
-    [CmdletBinding()]
-    param(
-        [Parameter(Mandatory)]
-        [string]$UserUpn,
-
-        [Parameter(Mandatory)]
-        [string]$TicketId,
-
-        [Parameter(Mandatory)]
-        [ValidateSet('Laptop', 'Desktop', 'Server', 'VM')]
-        [string]$DeviceType,
-
-        [Parameter(Mandatory)]
-        [ValidateSet('CloudOnly', 'Hybrid', 'Legacy')]
-        [string]$JoinMode
-    )
-
-    Test-RequiredEnvironment | Out-Null
-    $dit = Get-DeviceIdentityToken
-
-    try {
-        Invoke-DITValidation -Dit $dit
-        Invoke-CMDBCheck -Dit $dit
-        Update-CMDBState -Dit $dit -State 'Validated'
-
-        $ticket = [ordered]@{
-            ticketId   = $TicketId
-            userUpn   = $UserUpn
-            deviceType = $DeviceType
-            joinMode   = $JoinMode
-        }
-
-        Invoke-APilotApi -Method POST -Endpoint '/session/start' -Body $ticket | Out-Null
-        Request-TemporaryCertificate -Dit $dit | Out-Null
-        Invoke-DomainJoin -Dit $dit -JoinMode $JoinMode | Out-Null
-        Request-PermanentCertificate -Dit $dit | Out-Null
-        Update-CMDBState -Dit $dit -State 'Compliant' | Out-Null
-
-        Write-APilotLog -Message 'Onboarding completed successfully.' -Level INFO
-        return $true
-    }
-    catch {
-        Write-APilotLog -Message "Onboarding failed: $($_.Exception.Message)" -Level ERROR
-        try {
-            Update-CMDBState -Dit $dit -State 'Quarantined' | Out-Null
-        }
-        catch {
-            Write-APilotLog -Message 'Unable to update CMDB to Quarantined.' -Level WARN
-        }
-
-        throw
-    }
-}
-
-Export-ModuleMember -Function * -Alias *
-```
-
-## Operational recommendations
-
-To reduce human error and improve outcomes, the automation should include the following safeguards:
-
-- require administrator rights for all onboarding operations
-- require DIT validation before join
-- check for time drift before certificate issuance
-- enforce an explicit CMDB match before continuing
-- prevent duplicate onboarding sessions for the same device
-- track each transition in logs and CMDB state
-- require rollback on any failed join or cert operation
-- require final compliance validation before marking the device ready
-- require technician sign-off for edge-case or exception scenarios
+The strongest message is not that Microsoft needs a new product from scratch, but that Microsoft can improve the secure onboarding lifecycle in a way that makes Intune and Entra more effective for the most complex real-world enterprise environments.
 
 ## Glossary
 
 - AD DS: Active Directory Domain Services
 - DIT: Device Identity Token
-- CMDB: Configuration Management Database
 - Entra ID: Microsoft Entra ID
 - GPO: Group Policy Object
-- Intune: Microsoft Intune device management
-- MDM: Mobile Device Management
-- OU: Organizational Unit
+- Intune: Microsoft Intune
 - PKI: Public Key Infrastructure
-- VPN: Virtual Private Network
-- Quarantine: temporary hold state preventing trust and access
+- CMDB: Configuration Management Database
+- ITSM: Information Technology Service Management
+- Quarantine: restricted or blocked state during failed onboarding
+- Trust orchestration: the staged validation and approval of identity, device posture, and policy before access is granted
 
-## Final notes
+## Closing statement
 
-APilot is intended to be a disciplined operational method, not a one-off script. Real-world execution requires clear validation gates, strong identity controls, and reliable rollback logic. The objective is not simply to automate a device join; the objective is to make onboarding secure, consistent, and easy to audit.
-
-This framework aligns well with Microsoft-centric environments such as AD DS, Entra ID, Intune, and Windows-based endpoint management while staying vendor-neutral in its principles.
-
-This document should be treated as a practical blueprint for an enterprise onboarding architecture and can be adapted to local tooling, automation platforms, or custom ITSM workflows.
+APilot is best understood as a product concept for the next step in enterprise Windows onboarding: trust-first, identity-aware, policy-validated, and operationally secure. It aligns directly with the Microsoft direction around Intune, Entra ID, Autopilot, and hybrid identity governance, while addressing the real-world pain customers still face every day.
