@@ -1370,3 +1370,208 @@ function Close-ITSMTicket {
 
 Export-ModuleMember -Function * -Alias *
 '''
+APilot.ps1 - Orchestration script 
+'''Text - PowerShell
+<#
+.APilot.ps1
+APilot Orchestration Script
+Purpose:
+    Orchestrate the full APilot onboarding flow for a device:
+    1. Validate invitation
+    2. Ensure MFA
+    3. Install APilot plugin
+    4. Collect DIT
+    5. Validate DIT + CMDB
+    6. Install VPN client
+    7. Connect VPN
+    8. Request temporary certificate
+    9. Domain join
+    10. Request permanent certificate
+    11. Apply policies (GPO + Intune)
+    12. Cleanup & hardening
+    13. Final reboot (logical step)
+    14. Send final email to user
+    15. Update/close ITSM ticket
+
+Note:
+    This script assumes APilot.psm1 is in the same directory.
+    All backend calls are placeholders until wired to real APIs.
+#>
+
+# region: Initialization
+
+$scriptDir = Split-Path -Parent $MyInvocation.MyCommand.Path
+Import-Module (Join-Path $scriptDir "APilot.psm1") -Force
+
+Write-Host "=== APilot Onboarding Script Started ===" -ForegroundColor Cyan
+
+# Ask for basic context (in real world, these might come from portal or parameters)
+$UserEmail = Read-Host "Enter end-user corporate email"
+Write-Host "User email: $UserEmail"
+
+# endregion
+
+try {
+    # region: Step 1 – Validate APilot Invitation
+    Write-Host "`n[Step 1] Validating APilot invitation..." -ForegroundColor Yellow
+    $invitationOk = Invoke-APilotInvitation
+    if (-not $invitationOk) {
+        throw "APilot invitation validation failed."
+    }
+
+    # region: Step 2 – Ensure MFA
+    Write-Host "`n[Step 2] Checking MFA status..." -ForegroundColor Yellow
+    $mfaOk = Invoke-APilotMFA
+    if (-not $mfaOk) {
+        throw "MFA validation failed."
+    }
+
+    # region: Step 3 – Install APilot Plugin
+    Write-Host "`n[Step 3] Installing APilot plugin..." -ForegroundColor Yellow
+    $pluginOk = Install-APilotPlugin
+    if (-not $pluginOk) {
+        throw "APilot plugin installation failed."
+    }
+
+    # region: Step 4 – Collect DIT
+    Write-Host "`n[Step 4] Collecting Device Identity Token (DIT)..." -ForegroundColor Yellow
+    $DIT = Get-DIT
+
+    # region: Step 5 – Validate DIT + CMDB
+    Write-Host "`n[Step 5] Validating DIT and checking CMDB..." -ForegroundColor Yellow
+    $ditValid = Invoke-DITValidation -DIT $DIT
+    if (-not $ditValid) {
+        throw "DIT validation failed."
+    }
+
+    $cmdbOk = Invoke-CMDBCheck -DIT $DIT
+    if (-not $cmdbOk) {
+        throw "CMDB check failed."
+    }
+
+    # region: Step 6 – Install VPN Client
+    Write-Host "`n[Step 6] Installing VPN client..." -ForegroundColor Yellow
+    $vpnInstallOk = Install-VPNClient
+    if (-not $vpnInstallOk) {
+        throw "VPN client installation failed."
+    }
+
+    # region: Step 7 – Connect VPN
+    Write-Host "`n[Step 7] Connecting to VPN..." -ForegroundColor Yellow
+    $vpnConnectOk = Invoke-VPNConnect
+    if (-not $vpnConnectOk) {
+        throw "VPN connection failed."
+    }
+
+    # region: Step 8 – Request Temporary Certificate
+    Write-Host "`n[Step 8] Requesting temporary certificate..." -ForegroundColor Yellow
+    $tempCertOk = Request-TempCert -DIT $DIT
+    if (-not $tempCertOk) {
+        throw "Temporary certificate request failed."
+    }
+
+    # region: Step 9 – Domain Join
+    Write-Host "`n[Step 9] Initiating domain join..." -ForegroundColor Yellow
+    $joinOk = Invoke-DomainJoin -DIT $DIT
+    if (-not $joinOk) {
+        throw "Domain join failed."
+    }
+
+    # region: Step 10 – Request Permanent Certificate
+    Write-Host "`n[Step 10] Requesting permanent certificate..." -ForegroundColor Yellow
+    $permCertOk = Request-PermanentCert -DIT $DIT
+    if (-not $permCertOk) {
+        throw "Permanent certificate request failed."
+    }
+
+    # region: Step 11 – Apply Policies (GPO + Intune)
+    Write-Host "`n[Step 11] Applying GPO baseline..." -ForegroundColor Yellow
+    $gpoOk = Invoke-GPOSync
+    if (-not $gpoOk) {
+        throw "GPO baseline application failed."
+    }
+
+    Write-Host "`n[Step 11] Triggering Intune sync..." -ForegroundColor Yellow
+    $intuneOk = Invoke-IntuneSync
+    if (-not $intuneOk) {
+        throw "Intune sync failed."
+    }
+
+    # region: Step 12 – Cleanup & Hardening
+    Write-Host "`n[Step 12] Applying OS hardening..." -ForegroundColor Yellow
+    $osHardeningOk = Invoke-OSHardening
+    if (-not $osHardeningOk) {
+        throw "OS hardening failed."
+    }
+
+    Write-Host "`n[Step 12] Cleaning up applications..." -ForegroundColor Yellow
+    $appCleanupOk = Invoke-AppCleanup
+    if (-not $appCleanupOk) {
+        throw "Application cleanup failed."
+    }
+
+    # region: Step 13 – Final Reboot (Logical Step)
+    Write-Host "`n[Step 13] Scheduling final reboot..." -ForegroundColor Yellow
+    $rebootOk = Invoke-FinalReboot
+    if (-not $rebootOk) {
+        throw "Final reboot scheduling failed."
+    }
+
+    # region: Step 12/13 – Update CMDB State
+    Write-Host "`n[Step 13+] Updating CMDB state to 'Compliant'..." -ForegroundColor Yellow
+    $cmdbUpdateOk = Update-CMDBState -DIT $DIT -State "Compliant"
+    if (-not $cmdbUpdateOk) {
+        throw "CMDB state update failed."
+    }
+
+    # region: Step 14 – Send Final Email to User
+    Write-Host "`n[Step 14] Sending final guidance email to user..." -ForegroundColor Yellow
+    $emailOk = Send-UserFinalEmail -UserEmail $UserEmail
+    if (-not $emailOk) {
+        throw "Final email sending failed."
+    }
+
+    # region: Step 15 – Update/Close ITSM Ticket
+    Write-Host "`n[Step 15] Updating ITSM ticket status to 'Completed'..." -ForegroundColor Yellow
+    $itsmUpdateOk = Update-ITSMTicket -DIT $DIT -Status "Completed"
+    if (-not $itsmUpdateOk) {
+        throw "ITSM ticket update failed."
+    }
+
+    Write-Host "`n[Step 15] Closing ITSM ticket..." -ForegroundColor Yellow
+    $itsmCloseOk = Close-ITSMTicket -DIT $DIT
+    if (-not $itsmCloseOk) {
+        throw "ITSM ticket closure failed."
+    }
+
+    # endregion
+
+    Write-Host "`n=== APilot Onboarding Completed Successfully ===" -ForegroundColor Green
+}
+catch {
+    Write-Host "`n*** APilot Onboarding FAILED ***" -ForegroundColor Red
+    Write-Host "Error: $($_.Exception.Message)" -ForegroundColor Red
+
+    # Attempt rollback and quarantine actions
+    try {
+        Write-Host "`n[Rollback] Revoking temporary certificate (if any)..." -ForegroundColor Yellow
+        Revoke-TempCert -DIT $DIT | Out-Null
+
+        Write-Host "[Rollback] Rolling back domain join (if any)..." -ForegroundColor Yellow
+        Invoke-DomainRollback -DIT $DIT | Out-Null
+
+        Write-Host "[Rollback] Updating CMDB state to 'Quarantined'..." -ForegroundColor Yellow
+        Update-CMDBState -DIT $DIT -State "Quarantined" | Out-Null
+
+        Write-Host "[Rollback] Updating ITSM ticket status to 'Failed'..." -ForegroundColor Yellow
+        Update-ITSMTicket -DIT $DIT -Status "Failed" | Out-Null
+    }
+    catch {
+        Write-Host "Rollback encountered an error: $($_.Exception.Message)" -ForegroundColor Red
+    }
+
+    Write-Host "`nPlease review APilot logs and ITSM ticket for details." -ForegroundColor Yellow
+}
+
+Write-Host "`nScript finished. You may need to manually reboot the device if not already scheduled." -ForegroundColor Cyan
+'''
