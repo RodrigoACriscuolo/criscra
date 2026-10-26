@@ -1,3 +1,11 @@
+Title: APilot: Secure Enterprise Onboarding and Domain Join Method
+Description: APilot is a secure enterprise onboarding and domain join method for Windows devices
+Author: Rodrigo Aurelio Criscuolo
+Date: 2026-10-25
+Topic: Device Onboarding, Domain Join Method, Identity-First, Zero-Trust, CMDB-Governed Device Trust Orchestration
+Reviewed by Copilot
+
+
 # APilot: Secure Enterprise Onboarding and Domain Join Method
 # Identity-First, Zero-Trust, CMDB-Governed Device Trust Orchestration
 
