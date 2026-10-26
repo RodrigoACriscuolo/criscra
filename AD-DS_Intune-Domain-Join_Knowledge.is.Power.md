@@ -679,3 +679,62 @@ Check certificate presence
 Check Intune or GPO policy status
 Check CMDB updated to Compliant
 Document onboarding completion
+
+This is the "how". What the script must accomplish, step by step, in order, we can automatize it using this idea. Since the procedure requires interaction, an engineer must be responsible for its end-to-end execution in order for us to auomate the process based on this logic.
+
+01 - Start APilot interective Session (Entry Point)
+Initialize the APilot script, collect context, and verify technician identity.
+Run PowerShell as Admin ---> execute "Start-APilotOnboarding.ps1"
+    Prompt technician for:
+    * ITSM Ticket ID
+    * User UPN (email)
+    * Device type (Laptop/Desktop/Server/VM)
+
+    Log Session start to APilot backend via REST API (/session/start)
+    Validate technician identity using API token or Entra app registration
+
+02 - Validate CMDB Record & Device Identity Token "DIT" (Critial Check)
+Ensure the device is known and correctly registered in CMDB before any oboarding.
+'''Script calls CMDB API: Get /cmdb/device?upn={user}&type={deviceType} '''
+    
+    Collect local hardware info via PowerShell:
+    '''Serial: Get-WmiObject Win32_BIOS '''
+    '''BIO UUID: Get-WmiObject Win32_ComputerSystemProduct '''
+    '''TMP: Get-Wmiibject Win32_Tmp''' (if present)
+    VM GUID (if VM): Hyper-V/VMware tools
+
+    Build DIT object in script
+    Compare DIT with CMDB record via API
+    If mismatch ---> mark device as '''Quarantine ( Post /cmdb/quarantine )''' and stop.
+
+03 - Trigger Invitation & Portal Link (If not already Used)
+Ensure the user has a valid APilot invitation and link tied to this device and ticket.
+    '''Script calls APilot API: POST /invitation/create '''
+    If not, create new invitation bound to:
+        * User UPN
+        * DIT
+        * ITSM Ticket ID
+    '''Log invitation status to CMDB ( POST /cmdb/update )
+
+04 - Confirm User MFA & Portal Authentication
+Verify that the user has successfully authenticated with MFA in the APilot portal.
+'''Script polls APilot API: GET /session/status?upn={user}'''
+
+    '''Wait for portal to report MFACompleted = true'''
+    Implement timeout (e.g., 15-30 minutes)
+    If timeout or failure ---> log to ITSM and stop
+    If success ---> continue
+
+05 - Deploy APilot Plugin to Device (automation)
+Install the APolit agent that will handle local inventory, VPN, certs, and join tasks.
+
+'''Script downloads plugin from APilot API: GET /plugin/latest'''
+    * Download plugin MSI/EXE to temp folder
+    * '''Install silently:
+        Start-Process msiexec.exe -ArgumentList '/i plugin.msi /qn' -Wait'''
+
+    * Verify service/ process is running
+    * '''Log plugin install result to APilot backend ( POST /plugin/status ) and CMDB
+
+06 - Run Plugin Inventory & Re-Validate DIT
+Use the plugin to perform a deeper inventory and confirm device idenitity again.
