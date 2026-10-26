@@ -854,7 +854,7 @@ Create a structured checklist of all actions and results, and attach it to the I
     Module Skeleton (APilot.psm1)
     This script was created in VS Code with help of Copilot chat.
 
-    '''PowerShell
+    '''Text
     <#
 .APilot.psm1
 APilot PowerShell Module Skeleton
