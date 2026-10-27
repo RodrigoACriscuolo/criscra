@@ -394,5 +394,4 @@ This is the argument that should drive the next generation of email security: no
 ---
 
 ### Note on Synthesis & Acknowledgments
-
 This whitepaper was synthesized from an interactive technical dialogue between Rodrigo Aurélio Criscuolo and Gemini (Google AI), with additional review and refinement support from GitHub Copilot. The purpose is to clarify the operational gap between email authentication and real-world abuse prevention, emphasize the need for a vendor-neutral standardization initiative, and define a practical risk baseline for modern email security governance.
