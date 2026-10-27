@@ -40,6 +40,7 @@ Documenting SOPs, architecture blueprints, and real-world troubleshooting guides
 
 - [Modern Email Security Architecture](./Modern-email-security-architecture.md)
 - [OneDrive Profile Bloat Management for Azure Virtual Machines and VMware VDI](./Home.Profile-Bloat)
+- [Domain Join Knowledge / APilot Concept](./Domain-Join_Knowledge.is.Power.md)
 
 ---
 
