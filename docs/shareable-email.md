@@ -1,3 +1,4 @@
+Draft Email
 Subject: Microsoft-aligned secure onboarding and trust orchestration concept
 
 Hi,
@@ -7,7 +8,7 @@ I’m sharing a Microsoft-aligned concept for secure Windows onboarding and doma
 The concept combines Entra ID, AD DS, Intune, Windows Autopilot, Conditional Access, PKI, CMDB governance, and zero-trust enforcement into a single onboarding lifecycle. It is designed to ensure that devices are only trusted after identity, posture, certificate validity, and asset ownership are validated together.
 
 The full concept is here:
-https://github.com/RodrigoACriscuolo/criscra/blob/doc/apilot-stakeholder-review/Domain-Join_Knowledge.is.Power.md
+https://github.com/RodrigoACriscuolo/criscra/blob/doc/apilot/Domain-Join_Knowledge.is.Power.md
 
 If useful, I’d welcome feedback on:
 - architecture fit with Microsoft services
