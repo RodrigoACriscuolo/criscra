@@ -46,7 +46,7 @@ Documenting SOPs, architecture blueprints, and real-world troubleshooting guides
 
 ### 📊 GitHub Activity & Insights
 <div align="center">
-  <img src="https://github-readme-stats.vercel.app/api?username=RodrigoACriscuolo&show_icons=true&theme=tokyonight&count_private=true&hide_border=true&rank_icon=github" alt="GitHub Stats" width="48%" />
+  <img src="https://github-readme-stats.vercel.app/api?username=RodrigoACriscuolo&amp;show_icons=true&amp;theme=tokyonight&amp;hide_border=true&amp;rank_icon=github" alt="GitHub Stats" width="48%" />
     <img src="https://github-readme-stats.vercel.app/api/top-langs/?username=RodrigoACriscuolo&layout=compact&theme=tokyonight&hide_border=true" alt="Top Languages" width="48%" />
 </div>
 
