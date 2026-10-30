@@ -7,7 +7,7 @@
 
 ### 🚀 About Me
 
-- ⚡ **Core Focus:** Cloud & Hybrid Infrastructure Management, Cloud Architecture, IAM (Identity & Access Management), Azure & M365 Administration, Technical Troubleshooting, and Enterprise Systems Automation.
+- ⚡ **Core Focus:** Cloud & Hybrid Infrastructure Management, Cloud Architecture, IAM (Identity & Access Management), Azure & M365 Administration, Technical Troubleshooting, and Enterprise Systems Administration.
 - 🎯 **Current Specialization:** AI integration in hybrid infrastructure operations and future-proofing enterprise IT workloads.
 - 📍 **Location:** Toronto, ON | Open to Hybrid & Remote Opportunities
 
@@ -39,6 +39,7 @@
 Documenting SOPs, architecture blueprints, and real-world troubleshooting guides for daily infrastructure and CloudOps practice.
 
 - [Modern Email Security Architecture](./Modern-email-security-architecture.md)
+- [Domain-Join_Knowledge.is.Power](./Domain-Join_Knowledge.is.Power.md)
 - [OneDrive Profile Bloat Management for Azure Virtual Machines and VMware VDI](./Home.Profile-Bloat)
 
 ---
