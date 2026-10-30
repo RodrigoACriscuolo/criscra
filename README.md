@@ -45,16 +45,6 @@ Documenting SOPs, architecture blueprints, and real-world troubleshooting guides
 ---
 
 ### 📊 GitHub Activity & Insights
-
-<div align="center">
-  <a href="https://github.com/RodrigoACriscuolo" target="_blank" rel="noopener noreferrer">
-    <img src="https://img.shields.io/badge/GitHub-@RodrigoACriscuolo-181717?style=for-the-badge&logo=github" alt="GitHub Profile" />
-  </a>
-  <a href="https://www.linkedin.com/in/rodrigo-aurelio-criscuolo" target="_blank" rel="noopener noreferrer">
-    <img src="https://img.shields.io/badge/LinkedIn-Profile-0A66C2?style=for-the-badge&logo=linkedin" alt="LinkedIn Profile" />
-  </a>
-</div>
-
 <div align="center">
   <img src="https://github-readme-stats.vercel.app/api?username=RodrigoACriscuolo&show_icons=true&theme=tokyonight&count_private=true&hide_border=true&rank_icon=github" alt="GitHub Stats" width="48%" />
   <img src="https://github-readme-stats.vercel.app/api/top-langs/?username=RodrigoACriscuolo&layout=compact&theme=tokyonight&hide_border=true" alt="Top Languages" width="48%" />
