@@ -1,0 +1,97 @@
+function Find-DuplicateFiles {
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory=$true)]
+        [string]$FolderA,
+
+        [Parameter(Mandatory=$true)]
+        [string]$FolderB,
+
+        [Parameter()]
+        [switch]$IncludeMetadataReport,
+
+        [Parameter()]
+        [string]$ReportPath
+    )
+
+    begin {
+        Write-Verbose "Starting duplicate file analysis..."
+        $ErrorActionPreference = "Stop"
+        if (-not $ReportPath) {
+            $ReportPath = Join-Path $env:USERPROFILE -ChildPath "Desktop\DuplicateReport.html"
+        }
+    }
+
+    process {
+        # 1. Gather files from both folders
+        $filesA = Get-ChildItem -Path $FolderA -File -Recurse | Select-Object FullName, Length, LastWriteTime
+        $filesB = Get-ChildItem -Path $FolderB -File -Recurse | Select-Object FullName, Length, LastWriteTime
+
+        $allFiles = $filesA + $filesB
+
+        # 2. Metadata pre-filter: group by size
+        $sizeGroups = $allFiles |
+            Where-Object { $_.Length -gt 0 } |
+            Group-Object -Property Length |
+            Where-Object { $_.Count -gt 1 }
+
+        $flatCandidates = @($sizeGroups | ForEach-Object { $_.Group })
+
+        Write-Verbose "Metadata filter reduced workload to $($flatCandidates.Count) candidate files."
+
+        # 3. Hash candidates
+        $hashed = $flatCandidates | ForEach-Object {
+            $hash = Get-FileHash -Path $_.FullName -Algorithm SHA256
+            [PSCustomObject]@{
+                Hash = $hash.Hash
+                Path = $_.FullName
+                Length = $_.Length
+                LastWriteTime = $_.LastWriteTime
+            }
+        }
+
+        # 4. Group by hash to find duplicates
+        $duplicateGroups = $hashed |
+            Group-Object -Property Hash |
+            Where-Object { $_.Count -gt 1 }
+
+        # 5. Build report objects
+        $report = foreach ($group in $duplicateGroups) {
+            foreach ($item in $group.Group) {
+                [PSCustomObject]@{
+                    Hash          = $item.Hash
+                    SourceFolder  = if ($item.Path -like "$FolderA*") { "FolderA" } else { "FolderB" }
+                    Path          = $item.Path
+                    Length        = $item.Length
+                    LastWriteTime = $item.LastWriteTime
+                }
+            }
+        }
+
+        # 6. Export report if requested
+        if ($IncludeMetadataReport) {
+            $tempReportPath = Join-Path ([IO.Path]::GetTempPath()) ("DuplicateReport-{0}.html" -f [Guid]::NewGuid())
+            $report | ConvertTo-Html -Title "Duplicate File Report" -PreContent "<h1>Duplicate File Report</h1>" |
+                Set-Content -LiteralPath $tempReportPath -Encoding UTF8
+            Invoke-Item -LiteralPath $tempReportPath
+
+            $saveReport = Read-Host "Save this report to '$ReportPath'? (Y/N)"
+            if ($saveReport -match '^(Y|YES)$') {
+                $reportDirectory = Split-Path -Parent $ReportPath
+                if ($reportDirectory -and -not (Test-Path -LiteralPath $reportDirectory)) {
+                    New-Item -ItemType Directory -Path $reportDirectory -Force | Out-Null
+                }
+                Copy-Item -LiteralPath $tempReportPath -Destination $ReportPath -Force
+                Write-Verbose "Report saved to $ReportPath"
+            }
+            Remove-Item -LiteralPath $tempReportPath -Force
+        }
+
+        # 7. Output to console
+        return $report
+    }
+
+    end {
+        Write-Verbose "Duplicate file analysis completed."
+    }
+}
