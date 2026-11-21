@@ -1,0 +1,124 @@
+Script - OEM Clean-up
+-----------------
+Target remove no essential application of Windows OS
+-----------------
+# The App runs silenty in the System context, so scripts provisioned Store apps so they never return for new users, and triggers silent uninstallers for Wind32 vendor suites while avoiding core hardware drivers.
+#text (PowerShell)
+# run as System app, running as administrator
+$ErrorActionPreference = "SilentlyContinue"
+# 1. Target OEM Patterns (Adjust list per Cybersecurity policy)
+$OemPatterns = @(
+    "*Dell*",
+    "*HP*",
+    "*HPInc*",
+    "*HewlettPackard*",
+    "*Acer*",
+    "*Asus*",
+    "*Toshiba*",
+    "*Samsung*",
+    "*McAfee*",
+    "*Lenovo*",
+    "*Symantec*",
+    "*Norton*",
+    "*TrendMicro*",
+    "*Avast*",
+    "*WildTangent*",
+    "*BitDefender*",
+    "*Kaspersky*",
+    "*ESET*",
+    "*Microsoft*"
+)
+
+
+# 2. Remove provisioned Appx packages (Prevents install for new/domain users)
+function Test-PatternMatch {
+    param(
+        [string]$Name,
+        [string[]]$Patterns
+    )
+
+    foreach ($Pattern in $Patterns) {
+        if ($Name -like $Pattern) {
+            return $true
+        }
+    }
+
+    return $false
+}
+
+
+
+$Provisioned = Get-AppxProvisionedPackage -Online | Where-Object { $OemPatterns -contains $_.DisplayName }
+foreach ($Package in $Provisioned) {
+    Write-Host "Removing provisioned package: $($Package.DisplayName)"
+    Remove-AppxProvisionedPackage -Online -PackageName $Package.PackageName
+}
+
+# 3. Remove installed Appx packages (Removes for Existing users)
+$Installed = Get-AppxPackage -AllUsers | Where-Object { $OemPatterns -contains $_.Name }
+foreach ($Package in $Installed) {
+    Write-Host "Removing installed package: $($Package.Name)"
+    Remove-AppxPackage -Package $Package.PackageFullName -AllUsers
+}
+
+#4. Uninstall Win32 OEM Programs (MSI & EXE) via registry
+$UninstallPaths = @(
+    "HKLM:\Software\Microsoft\Windows\CurrentVersion\Uninstall\*",
+    "HKLM:\Software\WOW6432Node\Microsoft\Windows\CurrentVersion\Uninstall\*"
+)
+
+#Exclude core hardware drivers/runtimes so hardware doesn't break, but remove vendor bloatware
+$SafeExclusions = @(
+    "*Driver*",
+    "*Chipset*",
+    "*Audio*",
+    "*Graphics*",
+    "*Wlan*",
+    "*Bluetooth*",
+    "*Intel*",
+    "*NVIDIA*",
+    "*AMD*",
+    "*Realtek*",
+    "*Synaptics*",
+    "*Touchpad*",
+    "*DisplayLink*",
+    "*System Interface*"
+)
+
+"$InstalledApps = Get-ItemProperty -Path $UninstallPaths | Where-Object { $OemPatterns -contains $_.DisplayName -and $SafeExclusions -notcontains $_.DisplayName }
+foreach ($App in $InstalledApps) {
+    $Match =$false
+    Foreach ($Pattern in $OemPatterns){
+        if ($App.DisplayName -like $Pattern) {
+            $Match = $true
+            break
+        }
+    #skip if it match a core driver exclusion"
+    Foreach ($Safe in $SafeExclusions){
+        if ($App.DisplayName -like $Safe) {
+            $Match = $false
+            break
+        }
+    if ($Match) {
+        $UninstallCMD = $App.UninstallString
+        If ($App.DisplayName -like $Safe) { $Match = $false; continue }
+
+    if ($UninstallCMD) {
+        Write-Host "Uninstalling: $($App.DisplayName)"
+        Start-Process -FilePath "cmd.exe" -ArgumentList "/c $UninstallCMD /quiet /norestart" -Wait
+    } else {
+        Write-Host "No uninstall command found for: $($App.DisplayName)"
+        If ($Guid) {
+                Start-Process -FilePath "msiexec.exe" -ArgumentList "/x $Guid /quiet /norestart" -Wait
+            }
+    } else
+        {
+            #Attempt silent flags for standard EXE uninstallers
+            $ExePath = $UninstallCMD -replace '"',''
+            If (Test-Path $ExePath) {
+                Write-Host "Attempting silent uninstall for: $($App.DisplayName)"
+                Start-Process -FilePath $ExePath -ArgumentList "/S /quiet /norestart" -Wait
+            } else {
+                Write-Host "Uninstall path not found for: $($App.DisplayName)"
+            }
+        }
