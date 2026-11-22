@@ -1,191 +1,207 @@
-Script - OEM Clean-up
+<#Comments:
+The idea originated from a small Script to uninstall no essential apps of Windows - OEM Clean-up.
+The initiative was born out of security demand, given that pre-installed Windows applications, which are not essential, pose a security risk and require effort to keep updated.
+First, we are reviewing all pre-installed applications and also removing optional Microsoft (OEM) AppX packages.
+Note that this does not remove Windows components, drivers, or Win32 programs.
+#>
 -----------------
-Target remove no essential application of Windows OS
+<#
+Target: Identify, list and remove unnecessary applications from the Windows OS, either through individual selection or all at once. Review them, and generate a new list.
+#>
 -----------------
 #Requires -RunAsAdministrator
 
 $ErrorActionPreference = "Stop"
 
+Add-Type -AssemblyName System.Windows.Forms
+Add-Type -AssemblyName System.Drawing
+[System.Windows.Forms.Application]::EnableVisualStyles()
+
+# Suggestions are intentionally limited to optional consumer apps and the OEM
+# vendors already covered by the original OEM-Cleanup script.
+$OptionalAppPatterns = @(
+    '*Microsoft.BingNews*', '*Microsoft.BingWeather*', '*Microsoft.GetHelp*',
+    '*Microsoft.Getstarted*', '*Microsoft.MicrosoftOfficeHub*',
+    '*Microsoft.MicrosoftSolitaireCollection*', '*Microsoft.People*',
+    '*Microsoft.SkypeApp*', '*Microsoft.Todos*', '*Microsoft.WindowsAlarms*',
+    '*Microsoft.WindowsCamera*', '*Microsoft.WindowsFeedbackHub*',
+    '*Microsoft.WindowsMaps*', '*Microsoft.WindowsSoundRecorder*',
+    '*Microsoft.Xbox*', '*Microsoft.GamingApp*', '*Microsoft.ZuneMusic*',
+    '*Microsoft.ZuneVideo*', '*Microsoft.YourPhone*', '*MicrosoftTeams*',
+    '*Clipchamp*', '*PhoneLink*', '*LinkedInforWindows*', '*MicrosoftCorporationII.QuickAssist*'
+)
+
 $OemPatterns = @(
-    "*Dell*", "*HP*", "*HPInc*", "*HewlettPackard*", "*Acer*",
-    "*Asus*", "*Toshiba*", "*Samsung*", "*McAfee*", "*Lenovo*",
-    "*Symantec*", "*Norton*", "*TrendMicro*", "*Avast*", "*WildTangent*",
-    "*BitDefender*", "*Kaspersky*", "*ESET*"
+    '*Dell*', '*HP*', '*HPInc*', '*HewlettPackard*', '*Acer*', '*Asus*',
+    '*Toshiba*', '*Samsung*', '*Lenovo*', '*McAfee*', '*Symantec*',
+    '*Norton*', '*TrendMicro*', '*Avast*', '*WildTangent*', '*BitDefender*',
+    '*Kaspersky*', '*ESET*'
 )
 
+# Exclude packages whose names suggest hardware support or shared runtimes.
 $SafeExclusions = @(
-    "*Driver*", "*Chipset*", "*Audio*", "*Graphics*", "*WLAN*",
-    "*Bluetooth*", "*Intel*", "*NVIDIA*", "*AMD*", "*Realtek*",
-    "*Synaptics*", "*Touchpad*", "*DisplayLink*", "*System Interface*",
-    "*Runtime*", "*Redistributable*", "*Microsoft*"
+    '*Driver*', '*Chipset*', '*Audio*', '*Graphics*', '*WLAN*', '*Bluetooth*',
+    '*Intel*', '*NVIDIA*', '*AMD*', '*Realtek*', '*Synaptics*', '*Touchpad*',
+    '*DisplayLink*', '*SystemInterface*', '*Runtime*', '*Redistributable*',
+    '*Framework*', '*VCLibs*', '*NET.Native*', '*WindowsStore*', '*DesktopAppInstaller*'
 )
 
-function Test-PatternMatch {
-    param(
-        [AllowEmptyString()]
-        [string]$Name,
-
-        [string[]]$Patterns
-    )
-
-    if ([string]::IsNullOrWhiteSpace($Name)) {
-        return $false
+function Test-MatchesAny {
+    param([string]$Text, [string[]]$Patterns)
+    if ([string]::IsNullOrWhiteSpace($Text)) { return $false }
+    foreach ($pattern in $Patterns) {
+        if ($Text -like $pattern) { return $true }
     }
-
-    foreach ($Pattern in $Patterns) {
-        if ($Name -like $Pattern) {
-            return $true
-        }
-    }
-
     return $false
 }
 
-function Invoke-RegistryUninstaller {
-    param(
-        [Parameter(Mandatory)]
-        [string]$DisplayName,
+$form = New-Object System.Windows.Forms.Form
+$form.Text = 'Windows Optional App Cleanup'
+$form.StartPosition = 'CenterScreen'
+$form.Size = New-Object System.Drawing.Size(1040, 650)
+$form.MinimumSize = New-Object System.Drawing.Size(820, 480)
+$form.Font = New-Object System.Drawing.Font('Segoe UI', 9)
 
-        [string]$UninstallString,
+$intro = New-Object System.Windows.Forms.Label
+$intro.Text = 'Review optional Microsoft and OEM app packages. Nothing is selected by default. Windows components, drivers, and traditional Win32 programs are not removed.'
+$intro.AutoSize = $false
+$intro.Location = New-Object System.Drawing.Point(12, 12)
+$intro.Size = New-Object System.Drawing.Size(990, 42)
+$form.Controls.Add($intro)
 
-        [string]$QuietUninstallString
-    )
+$grid = New-Object System.Windows.Forms.DataGridView
+$grid.Location = New-Object System.Drawing.Point(12, 60)
+$grid.Size = New-Object System.Drawing.Size(990, 440)
+$grid.Anchor = 'Top, Bottom, Left, Right'
+$grid.AllowUserToAddRows = $false
+$grid.AllowUserToDeleteRows = $false
+$grid.AllowUserToResizeRows = $false
+$grid.RowHeadersVisible = $false
+$grid.SelectionMode = 'FullRowSelect'
+$grid.MultiSelect = $false
+$grid.AutoSizeColumnsMode = 'Fill'
+$grid.BackgroundColor = [System.Drawing.Color]::White
+$grid.Columns.Add((New-Object System.Windows.Forms.DataGridViewCheckBoxColumn -Property @{ Name = 'Select'; HeaderText = 'Remove'; FillWeight = 12 })) | Out-Null
+$grid.Columns.Add((New-Object System.Windows.Forms.DataGridViewTextBoxColumn -Property @{ Name = 'AppName'; HeaderText = 'App'; ReadOnly = $true; FillWeight = 28 })) | Out-Null
+$grid.Columns.Add((New-Object System.Windows.Forms.DataGridViewTextBoxColumn -Property @{ Name = 'Package'; HeaderText = 'Package identity'; ReadOnly = $true; FillWeight = 42 })) | Out-Null
+$grid.Columns.Add((New-Object System.Windows.Forms.DataGridViewTextBoxColumn -Property @{ Name = 'Scope'; HeaderText = 'Installed for'; ReadOnly = $true; FillWeight = 18 })) | Out-Null
+$form.Controls.Add($grid)
 
-    $UninstallCommand = if ($QuietUninstallString) {
-        $QuietUninstallString
-    } else {
-        $UninstallString
+$status = New-Object System.Windows.Forms.Label
+$status.Text = 'Loading package inventory…'
+$status.AutoSize = $false
+$status.Location = New-Object System.Drawing.Point(12, 510)
+$status.Size = New-Object System.Drawing.Size(700, 24)
+$status.Anchor = 'Bottom, Left'
+$form.Controls.Add($status)
+
+$refreshButton = New-Object System.Windows.Forms.Button
+$refreshButton.Text = 'Refresh list'
+$refreshButton.Location = New-Object System.Drawing.Point(720, 535)
+$refreshButton.Size = New-Object System.Drawing.Size(100, 32)
+$refreshButton.Anchor = 'Bottom, Right'
+$form.Controls.Add($refreshButton)
+
+$removeButton = New-Object System.Windows.Forms.Button
+$removeButton.Text = 'Remove selected'
+$removeButton.Location = New-Object System.Drawing.Point(830, 535)
+$removeButton.Size = New-Object System.Drawing.Size(172, 32)
+$removeButton.Anchor = 'Bottom, Right'
+$form.Controls.Add($removeButton)
+
+$script:Candidates = New-Object System.Collections.Generic.List[object]
+
+function Load-Candidates {
+    $grid.Rows.Clear()
+    $script:Candidates.Clear()
+    $status.Text = 'Scanning installed and provisioned app packages…'
+    $form.Refresh()
+
+    $seen = @{}
+    try {
+        foreach ($package in (Get-AppxPackage -ErrorAction Stop)) {
+            $identity = [string]$package.Name
+            $friendlyName = [string]$package.PackageFullName
+            $isOptional = (Test-MatchesAny -Text $identity -Patterns $OptionalAppPatterns) -or
+                          (Test-MatchesAny -Text $friendlyName -Patterns $OemPatterns) -or
+                          (Test-MatchesAny -Text ([string]$package.PackageFamilyName) -Patterns $OemPatterns)
+            if (-not $isOptional -or (Test-MatchesAny -Text $identity -Patterns $SafeExclusions)) { continue }
+            $key = 'Installed|' + [string]$package.PackageFullName
+            if ($seen.ContainsKey($key)) { continue }
+            $seen[$key] = $true
+            $script:Candidates.Add([pscustomobject]@{ Kind = 'Installed'; Package = $package; Name = $identity; FullName = [string]$package.PackageFullName })
+        }
+    }
+    catch {
+        [void][System.Windows.Forms.MessageBox]::Show("Could not read the current user's installed packages:`n$($_.Exception.Message)", 'Inventory warning', 'OK', 'Warning')
     }
 
-    if ([string]::IsNullOrWhiteSpace($UninstallCommand)) {
-        Write-Warning "No uninstall command found for: $DisplayName"
+    try {
+        foreach ($package in (Get-AppxProvisionedPackage -Online -ErrorAction Stop)) {
+            $identity = [string]$package.DisplayName
+            $packageName = [string]$package.PackageName
+            $isOptional = (Test-MatchesAny -Text $identity -Patterns $OptionalAppPatterns) -or
+                          (Test-MatchesAny -Text $packageName -Patterns $OptionalAppPatterns) -or
+                          (Test-MatchesAny -Text $identity -Patterns $OemPatterns) -or
+                          (Test-MatchesAny -Text $packageName -Patterns $OemPatterns)
+            if (-not $isOptional -or (Test-MatchesAny -Text $identity -Patterns $SafeExclusions) -or
+                (Test-MatchesAny -Text $packageName -Patterns $SafeExclusions)) { continue }
+            $key = 'Provisioned|' + $packageName
+            if ($seen.ContainsKey($key)) { continue }
+            $seen[$key] = $true
+            $script:Candidates.Add([pscustomobject]@{ Kind = 'Provisioned'; Package = $package; Name = $identity; FullName = $packageName })
+        }
+    }
+    catch {
+        [void][System.Windows.Forms.MessageBox]::Show("Could not read provisioned packages. Installed-user packages are still listed.`n$($_.Exception.Message)", 'Inventory warning', 'OK', 'Warning')
+    }
+
+    foreach ($candidate in $script:Candidates) {
+        $scope = if ($candidate.Kind -eq 'Installed') { 'Current user' } else { 'Future user profiles' }
+        $row = $grid.Rows.Add($false, $candidate.Name, $candidate.FullName, $scope)
+        $grid.Rows[$row].Tag = $candidate
+    }
+    $status.Text = "$($script:Candidates.Count) suggested package(s) found. Review each item; selection is always manual."
+}
+
+$refreshButton.Add_Click({ Load-Candidates })
+$removeButton.Add_Click({
+    $grid.EndEdit()
+    $selected = @()
+    foreach ($row in $grid.Rows) {
+        if ([bool]$row.Cells['Select'].Value) { $selected += $row.Tag }
+    }
+    if ($selected.Count -eq 0) {
+        [void][System.Windows.Forms.MessageBox]::Show('Select at least one package to continue.', 'Nothing selected', 'OK', 'Information')
         return
     }
 
-    Write-Host "Uninstalling: $DisplayName"
+    $names = ($selected | ForEach-Object { "• $($_.Name) [$($_.Kind)]" }) -join "`n"
+    $message = "This will remove the selected package(s). Provisioned package removal affects future user profiles.`n`n$names`n`nContinue?"
+    $answer = [System.Windows.Forms.MessageBox]::Show($message, 'Confirm package removal', 'YesNo', 'Warning', 'No')
+    if ($answer -ne [System.Windows.Forms.DialogResult]::Yes) { return }
 
-    # MSI package identified by a GUID.
-    if ($UninstallCommand -match '\{[0-9A-Fa-f-]{36}\}') {
-        Start-Process `
-            -FilePath "$env:SystemRoot\System32\msiexec.exe" `
-            -ArgumentList "/X `"$($Matches[0])`" /qn /norestart" `
-            -Wait `
-            -NoNewWindow
-        return
-    }
-
-    # Parse a quoted executable path or a path ending in .exe/.com.
-    $ExePath = $null
-    $ExistingArguments = $null
-
-    if ($UninstallCommand -match '^"(?<path>[^"]+)"\s*(?<args>.*)$') {
-        $ExePath = $Matches['path']
-        $ExistingArguments = $Matches['args'].Trim()
-    }
-    elseif ($UninstallCommand -match '^(?<path>[A-Za-z]:\\.+?\.(?:exe|com))(?<args>\s.*)?$') {
-        $ExePath = $Matches['path'].Trim()
-        $ExistingArguments = $Matches['args'].Trim()
-    }
-
-    if ($ExePath -and (Test-Path -LiteralPath $ExePath)) {
-        $SilentArguments = $ExistingArguments
-        if ([string]::IsNullOrWhiteSpace($SilentArguments)) {
-            $SilentArguments = "/S"
-        }
-        elseif ($SilentArguments -notmatch '(^|\s)(/S|/silent|/quiet)(\s|$)') {
-            $SilentArguments += " /S"
-        }
-
-        Start-Process `
-            -FilePath $ExePath `
-            -ArgumentList $SilentArguments `
-            -Wait `
-            -NoNewWindow
-    }
-    else {
-        Write-Warning "Uninstaller path not found or could not be parsed: $DisplayName"
-    }
-}
-
-# 1. Remove provisioned AppX packages.
-try {
-    $Provisioned = Get-AppxProvisionedPackage -Online -ErrorAction Stop |
-        Where-Object {
-            Test-PatternMatch -Name $_.DisplayName -Patterns $OemPatterns
-        }
-
-    foreach ($Package in $Provisioned) {
+    $failures = New-Object System.Collections.Generic.List[string]
+    $removed = 0
+    foreach ($candidate in $selected) {
         try {
-            Write-Host "Removing provisioned package: $($Package.DisplayName)"
-            Remove-AppxProvisionedPackage `
-                -Online `
-                -PackageName $Package.PackageName `
-                -ErrorAction Stop
+            if ($candidate.Kind -eq 'Installed') {
+                Remove-AppxPackage -Package $candidate.Package.PackageFullName -ErrorAction Stop
+            } else {
+                Remove-AppxProvisionedPackage -Online -PackageName $candidate.Package.PackageName -ErrorAction Stop | Out-Null
+            }
+            $removed++
         }
         catch {
-            Write-Warning "Provisioned package removal failed: $($Package.DisplayName): $($_.Exception.Message)"
+            $failures.Add("$($candidate.Name): $($_.Exception.Message)")
         }
     }
-}
-catch {
-    Write-Warning "Could not retrieve provisioned AppX packages: $($_.Exception.Message)"
-}
 
-# 2. Remove installed AppX packages for all users.
-try {
-    $InstalledAppx = Get-AppxPackage -AllUsers -ErrorAction Stop |
-        Where-Object {
-            Test-PatternMatch -Name $_.Name -Patterns $OemPatterns
-        }
+    $summary = "$removed package(s) removed."
+    if ($failures.Count -gt 0) { $summary += "`n`nCould not remove:`n" + ($failures -join "`n") }
+    [void][System.Windows.Forms.MessageBox]::Show($summary, 'Cleanup results', 'OK', $(if ($failures.Count) { 'Warning' } else { 'Information' }))
+    Load-Candidates
+})
 
-    foreach ($Package in $InstalledAppx) {
-        try {
-            Write-Host "Removing installed package: $($Package.Name)"
-            Remove-AppxPackage `
-                -Package $Package.PackageFullName `
-                -AllUsers `
-                -ErrorAction Stop
-        }
-        catch {
-            Write-Warning "AppX package removal failed: $($Package.Name): $($_.Exception.Message)"
-        }
-    }
-}
-catch {
-    Write-Warning "Could not retrieve installed AppX packages: $($_.Exception.Message)"
-}
-
-# 3. Remove matching Win32 applications.
-$UninstallPaths = @(
-    "HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\*",
-    "HKLM:\SOFTWARE\WOW6432Node\Microsoft\Windows\CurrentVersion\Uninstall\*"
-)
-
-$InstalledApps = foreach ($Path in $UninstallPaths) {
-    if (Test-Path $Path) {
-        Get-ItemProperty -Path $Path -ErrorAction SilentlyContinue
-    }
-}
-
-foreach ($App in $InstalledApps) {
-    if ([string]::IsNullOrWhiteSpace($App.DisplayName)) {
-        continue
-    }
-
-    $MatchesOem = Test-PatternMatch `
-        -Name $App.DisplayName `
-        -Patterns $OemPatterns
-
-    $MatchesExclusion = Test-PatternMatch `
-        -Name $App.DisplayName `
-        -Patterns $SafeExclusions
-
-    if (-not $MatchesOem -or $MatchesExclusion) {
-        continue
-    }
-
-    Invoke-RegistryUninstaller `
-        -DisplayName $App.DisplayName `
-        -UninstallString ([string]$App.UninstallString) `
-        -QuietUninstallString ([string]$App.QuietUninstallString)
-}
+Load-Candidates
+[void]$form.ShowDialog()
