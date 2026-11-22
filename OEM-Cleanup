@@ -3,288 +3,285 @@
 
 <#
 .SYNOPSIS
-    Inventory and explicitly authorized removal of selected optional Windows AppX packages.
+    Review an exact allowlist of optional Windows AppX packages and remove only
+    explicitly selected package names and installation scopes.
 
 .DESCRIPTION
-    Lists AppX packages installed for any user and packages provisioned for future
-    user profiles. Curated names are flagged as suggested optional apps; matching
-    is only a starting point, not a determination that an app is unnecessary.
+    The action menu appears before any inventory scan. Inventory is read-only.
+    Installed packages are grouped by exact package Name and shown separately
+    from provisioned packages. Removal is by individual IDs or one category and
+    one scope at a time. There is intentionally no remove-everything action.
 
-    No removals happen automatically. Individual selected entries require typing
-    YES after reviewing the names. Removing all candidates requires typing the
-    exact phrase REMOVE ALL. Win32 desktop apps are inventory-only in this version.
+    This allowlist is a conservative starting point, not a claim that listed
+    apps are unnecessary to every user. Xbox support/identity components are
+    deliberately excluded. Win32/OEM applications are not removed.
 
-    Save as OEM-CleanUp.ps1 and run in elevated Windows PowerShell 5.1.
+    Test in a disposable VM. This script cannot reboot or verify post-reboot
+    behavior automatically.
 #>
 
 $ErrorActionPreference = 'Stop'
 
-# Deliberately use known package identities rather than broad words such as
-# '*Camera*', '*News*', or '*Paint*', which can match unrelated components.
-$OptionalMicrosoftPatterns = @(
-    'Microsoft.BingNews',
-    'Microsoft.BingWeather',
-    'Microsoft.GetHelp',
-    'Microsoft.Getstarted',
-    'Microsoft.MicrosoftOfficeHub',
-    'Microsoft.MicrosoftSolitaireCollection',
-    'Microsoft.People',
-    'Microsoft.SkypeApp',
-    'Microsoft.Todos',
-    'Microsoft.WindowsAlarms',
-    'Microsoft.WindowsCamera',
-    'Microsoft.WindowsFeedbackHub',
-    'Microsoft.WindowsMaps',
-    'Microsoft.WindowsSoundRecorder',
-    'Microsoft.Xbox*',
-    'Microsoft.GamingApp',
-    'Microsoft.ZuneMusic',
-    'Microsoft.ZuneVideo',
-    'Microsoft.YourPhone',
-    'MicrosoftTeams*',
-    'MSTeams*',
-    'Clipchamp.Clipchamp',
-    'MicrosoftCorporationII.QuickAssist',
-    'MicrosoftWindows.CrossDevice',
-    'Microsoft.PowerAutomateDesktop',
-    'Microsoft.MixedReality.Portal',
-    'Microsoft.Microsoft3DViewer',
-    'Microsoft.MicrosoftStickyNotes',
-    'Microsoft.Office.OneNote'
-)
-
-# OEM/security trial apps are candidates for review only. A vendor match does
-# not mean the program is unneeded; do not select an item unless you recognize it.
-$OemPatterns = @(
-    '*Dell*', '*HP*', '*HPInc*', '*HewlettPackard*', '*Acer*', '*Asus*',
-    '*Toshiba*', '*Samsung*', '*Lenovo*', '*McAfee*', '*Symantec*',
-    '*Norton*', '*TrendMicro*', '*Avast*', '*WildTangent*', '*BitDefender*',
-    '*Kaspersky*', '*ESET*'
-)
-
-# Never flag likely platform components/frameworks for AppX removal.
-$ProtectedPatterns = @(
-    '*WindowsStore*', '*DesktopAppInstaller*', '*AppInstaller*',
-    '*ShellExperienceHost*', '*StartMenuExperienceHost*', '*SecHealthUI*',
-    '*AAD.BrokerPlugin*', '*LockApp*', '*ContentDeliveryManager*',
-    '*CloudExperienceHost*', '*CBSPreview*', '*NET.Native*', '*VCLibs*',
-    '*Runtime*', '*Framework*', '*WindowsDefender*', '*WindowsTerminal*'
-)
-
-function Test-AnyPattern {
-    param([AllowEmptyString()][string] $Text, [string[]] $Patterns)
-    if ([string]::IsNullOrWhiteSpace($Text)) { return $false }
-    foreach ($pattern in $Patterns) {
-        if ($Text -like $pattern) { return $true }
-    }
-    return $false
+# Exact package family names only. New or similarly named packages are not
+# candidates unless deliberately reviewed and added here.
+$CandidateCategories = [ordered]@{
+    'Consumer and media' = @(
+        'Microsoft.BingNews', 'Microsoft.BingWeather', 'Microsoft.GetHelp',
+        'Microsoft.Getstarted', 'Microsoft.MicrosoftOfficeHub',
+        'Microsoft.MicrosoftSolitaireCollection', 'Microsoft.People',
+        'Microsoft.SkypeApp', 'Microsoft.Todos', 'Microsoft.WindowsAlarms',
+        'Microsoft.WindowsCamera', 'Microsoft.WindowsFeedbackHub',
+        'Microsoft.WindowsMaps', 'Microsoft.WindowsSoundRecorder',
+        'Microsoft.ZuneMusic', 'Microsoft.ZuneVideo', 'Clipchamp.Clipchamp',
+        'Microsoft.MixedReality.Portal', 'Microsoft.Microsoft3DViewer',
+        'Microsoft.MicrosoftStickyNotes', 'Microsoft.Office.OneNote'
+    )
+    'Xbox and gaming' = @(
+        'Microsoft.GamingApp', 'Microsoft.XboxApp',
+        'Microsoft.XboxGameOverlay', 'Microsoft.XboxGamingOverlay'
+    )
+    'Communication and support' = @(
+        'Microsoft.YourPhone', 'MicrosoftWindows.CrossDevice', 'MSTeams',
+        'MicrosoftTeams', 'MicrosoftCorporationII.QuickAssist',
+        'Microsoft.PowerAutomateDesktop'
+    )
 }
 
-function Test-OptionalCandidate {
-    param([AllowEmptyString()][string] $Identity)
-    if ([string]::IsNullOrWhiteSpace($Identity)) { return $false }
-    if (Test-AnyPattern -Text $Identity -Patterns $ProtectedPatterns) { return $false }
-    return (Test-AnyPattern -Text $Identity -Patterns $OptionalMicrosoftPatterns) -or
-           (Test-AnyPattern -Text $Identity -Patterns $OemPatterns)
+# Explicit denylist wins even if a name is accidentally added to a candidate
+# category later. Includes platform/security/store/framework and Xbox support
+# components that may be dependencies for apps or games.
+$DeniedPackageNames = @(
+    'Microsoft.WindowsStore', 'Microsoft.StorePurchaseApp',
+    'Microsoft.DesktopAppInstaller', 'Microsoft.WindowsAppRuntime',
+    'Microsoft.VCLibs', 'Microsoft.NET.Native.Framework',
+    'Microsoft.NET.Native.Runtime', 'Microsoft.Windows.ShellExperienceHost',
+    'Microsoft.Windows.StartMenuExperienceHost', 'Microsoft.AAD.BrokerPlugin',
+    'Microsoft.LockApp', 'Microsoft.Windows.CloudExperienceHost',
+    'Microsoft.Windows.ContentDeliveryManager', 'Microsoft.SecHealthUI',
+    'MicrosoftWindows.Client.WebExperience', 'MicrosoftWindows.Client.CBS',
+    'Microsoft.WindowsNotepad', 'Microsoft.WindowsTerminal',
+    'Microsoft.Xbox.TCUI', 'Microsoft.XboxGameCallableUI',
+    'Microsoft.XboxIdentityProvider', 'Microsoft.XboxSpeechToTextOverlay'
+)
+
+function Test-RequiredCommands {
+    foreach ($commandName in @(
+        'Get-AppxPackage', 'Get-AppxProvisionedPackage',
+        'Remove-AppxPackage', 'Remove-AppxProvisionedPackage'
+    )) {
+        if (-not (Get-Command $commandName -ErrorAction SilentlyContinue)) {
+            throw "Required command '$commandName' was not found. Run this in Windows PowerShell 5.1 on Windows with Appx/DISM cmdlets available."
+        }
+    }
+}
+
+function Get-CandidateCategory {
+    param([string] $Name)
+    if ([string]::IsNullOrWhiteSpace($Name) -or $Name -in $DeniedPackageNames) { return $null }
+    foreach ($category in $CandidateCategories.Keys) {
+        if ($Name -in $CandidateCategories[$category]) { return $category }
+    }
+    return $null
 }
 
 function Get-CandidateInventory {
-    $items = New-Object System.Collections.Generic.List[object]
-    $seen = @{}
-    $id = 0
-
-    Write-Host 'Checking PowerShell commands and reading AppX inventories...' -ForegroundColor Cyan
-    foreach ($commandName in @('Get-AppxPackage', 'Get-AppxProvisionedPackage', 'Remove-AppxPackage', 'Remove-AppxProvisionedPackage')) {
-        if (-not (Get-Command $commandName -ErrorAction SilentlyContinue)) {
-            throw "Required Windows command '$commandName' was not found. Use Windows PowerShell on Windows with the Appx/DISM components available."
-        }
-    }
+    Test-RequiredCommands
+    $groups = @{}
+    $inventoryErrors = New-Object System.Collections.Generic.List[string]
 
     try {
         foreach ($package in (Get-AppxPackage -AllUsers -ErrorAction Stop)) {
-            $identity = [string]$package.Name
-            if (-not (Test-OptionalCandidate -Identity $identity)) { continue }
-            $key = 'Installed|' + [string]$package.PackageFullName
-            if ($seen.ContainsKey($key)) { continue }
-            $seen[$key] = $true
-            $id++
-            $items.Add([pscustomobject]@{
-                Id = $id
-                Scope = 'Installed (all users)'
-                Name = $identity
-                PackageId = [string]$package.PackageFullName
-                Kind = 'Installed'
-            })
+            $name = [string]$package.Name
+            $category = Get-CandidateCategory -Name $name
+            if (-not $category) { continue }
+            $scope = 'Installed (all users)'
+            $key = "$scope|$name"
+            if (-not $groups.ContainsKey($key)) {
+                $groups[$key] = [pscustomobject]@{
+                    Id = 0; Scope = $scope; Category = $category; Name = $name
+                    PackageIds = New-Object System.Collections.Generic.List[string]
+                    Kind = 'Installed'
+                }
+            }
+            $packageId = [string]$package.PackageFullName
+            if (-not $groups[$key].PackageIds.Contains($packageId)) {
+                $groups[$key].PackageIds.Add($packageId)
+            }
         }
     }
-    catch {
-        Write-Warning "Could not enumerate AppX packages for all users: $($_.Exception.Message)"
-    }
+    catch { $inventoryErrors.Add("Installed packages: $($_.Exception.Message)") }
 
     try {
         foreach ($package in (Get-AppxProvisionedPackage -Online -ErrorAction Stop)) {
-            $identity = [string]$package.DisplayName
-            $packageName = [string]$package.PackageName
-            if (-not ((Test-OptionalCandidate -Identity $identity) -or
-                      (Test-OptionalCandidate -Identity $packageName))) { continue }
-            $key = 'Provisioned|' + $packageName
-            if ($seen.ContainsKey($key)) { continue }
-            $seen[$key] = $true
-            $id++
-            $items.Add([pscustomobject]@{
-                Id = $id
-                Scope = 'Provisioned (future profiles)'
-                Name = $(if ($identity) { $identity } else { $packageName })
-                PackageId = $packageName
-                Kind = 'Provisioned'
-            })
-        }
-    }
-    catch {
-        Write-Warning "Could not enumerate provisioned AppX packages: $($_.Exception.Message)"
-    }
-
-    # Return individual rows, not a nested collection (which caused blank tables).
-    return $items.ToArray()
-}
-
-function Get-Win32ReviewInventory {
-    $paths = @(
-        'HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\*',
-        'HKLM:\SOFTWARE\WOW6432Node\Microsoft\Windows\CurrentVersion\Uninstall\*',
-        'HKCU:\SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\*'
-    )
-    $found = @{}
-    foreach ($path in $paths) {
-        if (-not (Test-Path -LiteralPath $path)) { continue }
-        foreach ($app in (Get-ItemProperty -Path $path -ErrorAction SilentlyContinue)) {
-            $name = [string]$app.DisplayName
-            if ([string]::IsNullOrWhiteSpace($name)) { continue }
-            if (-not (Test-AnyPattern -Text $name -Patterns $OemPatterns)) { continue }
-            if (Test-AnyPattern -Text $name -Patterns $ProtectedPatterns) { continue }
-            $key = "$name|$($app.Publisher)"
-            if (-not $found.ContainsKey($key)) {
-                $found[$key] = [pscustomobject]@{ Name = $name; Publisher = [string]$app.Publisher }
+            $name = [string]$package.DisplayName
+            $category = Get-CandidateCategory -Name $name
+            if (-not $category) { continue }
+            $scope = 'Provisioned (future profiles)'
+            $key = "$scope|$name"
+            if (-not $groups.ContainsKey($key)) {
+                $groups[$key] = [pscustomobject]@{
+                    Id = 0; Scope = $scope; Category = $category; Name = $name
+                    PackageIds = New-Object System.Collections.Generic.List[string]
+                    Kind = 'Provisioned'
+                }
+            }
+            $packageId = [string]$package.PackageName
+            if (-not $groups[$key].PackageIds.Contains($packageId)) {
+                $groups[$key].PackageIds.Add($packageId)
             }
         }
     }
-    return @($found.Values | Sort-Object Name)
+    catch { $inventoryErrors.Add("Provisioned packages: $($_.Exception.Message)") }
+
+    $sorted = @($groups.Values | Sort-Object Scope, Category, Name)
+    $id = 0
+    foreach ($item in $sorted) { $id++; $item.Id = $id }
+
+    # Return one inventory object only; no formatting output is mixed into it.
+    return [pscustomobject]@{ Items = $sorted; Errors = @($inventoryErrors) }
 }
 
 function Show-Inventory {
-    param([object[]] $Items)
-    Write-Host "`nSuggested optional AppX packages (review; not a claim that they are unnecessary):" -ForegroundColor Yellow
-    if (-not $Items -or $Items.Count -eq 0) {
-        Write-Host 'No packages matched the current candidate patterns.'
-    }
-    else {
-        $Items | Select-Object Id, Scope, Name, PackageId | Format-Table -Wrap -AutoSize
+    param([object[]] $Items, [string[]] $Errors = @())
+    if ($Errors.Count) {
+        Write-Warning 'Inventory may be incomplete:'
+        foreach ($message in $Errors) { Write-Warning "  $message" }
     }
 
-    $win32 = @(Get-Win32ReviewInventory)
-    Write-Host "`nLikely OEM/security Win32 apps (review-only; this script will not uninstall them):" -ForegroundColor Yellow
-    if ($win32.Count -eq 0) {
-        Write-Host 'No matches in the checked uninstall registry entries.'
+    foreach ($scope in @('Installed (all users)', 'Provisioned (future profiles)')) {
+        Write-Host "`n$scope" -ForegroundColor Cyan
+        $scopeItems = @($Items | Where-Object { $_.Scope -eq $scope })
+        if ($scopeItems.Count -eq 0) {
+            Write-Host '  No allowlisted packages found.'
+            continue
+        }
+        # Out-Host is important: prevents Format-Table output from being
+        # captured into $inventory when this function is called from a menu.
+        $scopeItems |
+            Select-Object Id, Category, Name,
+                @{Name='PackageVersions';Expression={$_.PackageIds.Count}} |
+            Format-Table -Wrap -AutoSize |
+            Out-Host
     }
-    else {
-        $win32 | Format-Table Name, Publisher -Wrap -AutoSize
-    }
+    Write-Host "`nCandidate names are exact allowlist matches only. Versions of each Name are grouped together."
 }
 
-function Remove-Candidate {
-    param([Parameter(Mandatory)][object] $Item)
-    if ($Item.Kind -eq 'Installed') {
-        Remove-AppxPackage -Package $Item.PackageId -AllUsers -ErrorAction Stop
-    }
-    elseif ($Item.Kind -eq 'Provisioned') {
-        Remove-AppxProvisionedPackage -Online -PackageName $Item.PackageId -ErrorAction Stop | Out-Null
-    }
-    else {
-        throw "Unknown candidate kind '$($Item.Kind)'."
-    }
-}
-
-function Invoke-SelectedRemoval {
-    param([object[]] $Items, [switch] $All)
-    if (-not $Items -or $Items.Count -eq 0) {
-        Write-Host 'There are no AppX candidates to remove.'
+function Confirm-AndRemove {
+    param([object[]] $Selected)
+    if (-not $Selected -or $Selected.Count -eq 0) {
+        Write-Host 'No matching entries; nothing to remove.'
         return
     }
 
-    if ($All) {
-        $selected = @($Items)
-        Write-Host "`nALL $($selected.Count) listed AppX entries are selected. This includes all-user and future-profile scopes." -ForegroundColor Red
-        $confirmation = Read-Host 'Type REMOVE ALL CANDIDATES exactly to authorize'
-        if ($confirmation -cne 'REMOVE ALL CANDIDATES') {
-            Write-Host 'Cancelled; nothing was removed.'
-            return
-        }
+    Write-Host "`nExact selection (each package identity is shown):" -ForegroundColor Yellow
+    foreach ($item in $Selected) {
+        Write-Host "ID $($item.Id) | $($item.Scope) | $($item.Category) | $($item.Name)"
+        foreach ($packageId in $item.PackageIds) { Write-Host "    $packageId" }
     }
-    else {
-        $raw = Read-Host 'Enter candidate ID(s), comma-separated; press Enter to cancel'
-        if ([string]::IsNullOrWhiteSpace($raw)) { Write-Host 'Cancelled; nothing was removed.'; return }
-        $requested = @()
-        foreach ($part in ($raw -split ',')) {
-            $number = 0
-            if (-not [int]::TryParse($part.Trim(), [ref]$number)) {
-                Write-Warning "Invalid ID '$($part.Trim())'; nothing was removed."
-                return
+    Write-Host 'Installed removal uses -AllUsers. Provisioned removal affects future profiles.' -ForegroundColor Yellow
+    $phrase = Read-Host 'Type YES to authorize exactly the entries shown (anything else cancels)'
+    if ($phrase -cne 'YES') {
+        Write-Host 'Cancelled; nothing was removed.'
+        return
+    }
+
+    foreach ($item in $Selected) {
+        foreach ($packageId in $item.PackageIds) {
+            try {
+                if ($item.Kind -eq 'Installed') {
+                    Remove-AppxPackage -Package $packageId -AllUsers -ErrorAction Stop | Out-Null
+                }
+                elseif ($item.Kind -eq 'Provisioned') {
+                    Remove-AppxProvisionedPackage -Online -PackageName $packageId -ErrorAction Stop | Out-Null
+                }
+                else {
+                    throw "Unknown removal scope '$($item.Kind)'."
+                }
+                Write-Host "Removal command completed: $packageId" -ForegroundColor Green
             }
-            $requested += $number
-        }
-        $uniqueIds = @($requested | Sort-Object -Unique)
-        $selected = @($Items | Where-Object { $_.Id -in $uniqueIds } | Sort-Object Id)
-        if ($selected.Count -ne $uniqueIds.Count) {
-            Write-Warning 'One or more IDs are not in the displayed inventory; nothing was removed.'
-            return
-        }
-        Write-Host "`nYou selected:" -ForegroundColor Yellow
-        $selected | Select-Object Id, Scope, Name, PackageId | Format-Table -Wrap -AutoSize
-        $confirmation = Read-Host 'Type YES exactly to authorize removal of only these entries'
-        if ($confirmation -cne 'YES') { Write-Host 'Cancelled; nothing was removed.'; return }
-    }
-
-    foreach ($item in $selected) {
-        try {
-            Write-Host "Removing $($item.Name) [$($item.Scope)]..."
-            Remove-Candidate -Item $item
-            Write-Host 'Removal command completed.' -ForegroundColor Green
-        }
-        catch {
-            Write-Warning "Removal failed for '$($item.Name)' ($($item.Scope)): $($_.Exception.Message)"
+            catch {
+                Write-Warning "Removal failed for '$packageId': $($_.Exception.Message)"
+            }
         }
     }
 }
 
-Write-Host 'Windows Optional App Inventory and Cleanup' -ForegroundColor Cyan
-Write-Host 'Candidates are suggestions. Windows versions and user needs differ.'
-Write-Host 'No package is removed until you select an action and type its confirmation.'
-
-try {
-    $items = @(Get-CandidateInventory)
+function Get-CurrentInventory {
+    $result = Get-CandidateInventory
+    Show-Inventory -Items $result.Items -Errors $result.Errors
+    # Show-Inventory writes only to the host. This function returns exactly
+    # the inventory object for assignments in the menu.
+    return $result
 }
-catch {
-    Write-Error $_
-    exit 1
-}
-Show-Inventory -Items $items
 
+Write-Host 'Windows Optional App Review and Cleanup' -ForegroundColor Cyan
+Write-Host 'No inventory scan or removal starts until you choose an action.'
+Write-Host 'There is no remove-everything action. Select individual names or one category and scope.'
+Write-Host 'Xbox support/identity packages are excluded from the removal candidates.'
+
+$inventory = $null
 while ($true) {
-    Write-Host "`nActions: L=list, S=select IDs for removal, A=remove all candidates, R=refresh, Q=quit"
+    Write-Host "`nActions: L=list, S=select IDs for removal, C=remove one category, R=refresh, Q=quit"
     $choice = (Read-Host 'Choice').Trim().ToUpperInvariant()
     switch ($choice) {
-        'L' { Show-Inventory -Items $items }
-        'S' { Invoke-SelectedRemoval -Items $items }
-        'A' { Invoke-SelectedRemoval -Items $items -All }
-        'R' {
-            try {
-                $items = @(Get-CandidateInventory)
-                Show-Inventory -Items $items
+        'L' { $inventory = Get-CurrentInventory }
+        'R' { $inventory = Get-CurrentInventory }
+        'S' {
+            if ($null -eq $inventory) { $inventory = Get-CurrentInventory }
+            if ($inventory.Items.Count -eq 0) { Write-Host 'No candidates available.'; break }
+            $raw = Read-Host 'Enter ID(s) from the current inventory, comma-separated'
+            if ([string]::IsNullOrWhiteSpace($raw)) { Write-Host 'Cancelled.'; break }
+            $ids = @()
+            $valid = $true
+            foreach ($part in ($raw -split ',')) {
+                $number = 0
+                if (-not [int]::TryParse($part.Trim(), [ref]$number)) { $valid = $false; break }
+                $ids += $number
             }
-            catch { Write-Warning "Refresh failed: $($_.Exception.Message)" }
+            $uniqueIds = @($ids | Sort-Object -Unique)
+            $selected = @($inventory.Items | Where-Object { $_.Id -in $uniqueIds } | Sort-Object Id)
+            if (-not $valid -or $selected.Count -ne $uniqueIds.Count) {
+                Write-Warning 'Invalid or stale ID; nothing was removed.'
+                break
+            }
+            Confirm-AndRemove -Selected $selected
+            $inventory = $null
+        }
+        'C' {
+            if ($null -eq $inventory) { $inventory = Get-CurrentInventory }
+            $categories = @($CandidateCategories.Keys)
+            for ($i = 0; $i -lt $categories.Count; $i++) {
+                Write-Host "  $($i + 1) - $($categories[$i])"
+            }
+            $categoryNumber = 0
+            if (-not [int]::TryParse((Read-Host 'Choose one category number'), [ref]$categoryNumber) -or
+                $categoryNumber -lt 1 -or $categoryNumber -gt $categories.Count) {
+                Write-Host 'Invalid category; nothing was removed.'
+                break
+            }
+            $category = $categories[$categoryNumber - 1]
+            Write-Host "  1 - Installed (all users)`n  2 - Provisioned (future profiles)"
+            $scopeChoice = Read-Host 'Choose one scope number'
+            $scope = if ($scopeChoice -eq '1') {
+                'Installed (all users)'
+            } elseif ($scopeChoice -eq '2') {
+                'Provisioned (future profiles)'
+            } else {
+                $null
+            }
+            if (-not $scope) { Write-Host 'Invalid scope; nothing was removed.'; break }
+            $selected = @($inventory.Items | Where-Object {
+                $_.Category -eq $category -and $_.Scope -eq $scope
+            })
+            if ($selected.Count -eq 0) {
+                Write-Host 'No entries in that category and scope.'
+                break
+            }
+            Confirm-AndRemove -Selected $selected
+            $inventory = $null
         }
         'Q' { break }
-        default { Write-Host 'Choose L, S, A, R, or Q.' }
+        default { Write-Host 'Choose L, S, C, R, or Q.' }
     }
     if ($choice -eq 'Q') { break }
 }
