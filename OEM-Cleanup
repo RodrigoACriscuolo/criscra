@@ -1,34 +1,52 @@
-<#Comments:
-The idea originated from a small Script to uninstall no essential apps of Windows - OEM Clean-up.
-The initiative was born out of security demand, given that pre-installed Windows applications, which are not essential, pose a security risk and require effort to keep updated.
-First, we are reviewing all pre-installed applications and also removing optional Microsoft (OEM) AppX packages.
-Note that this does not remove Windows components, drivers, or Win32 programs.
-#>
------------------
-<#
-Target: Identify, list and remove unnecessary applications from the Windows OS, either through individual selection or all at once. Review them, and generate a new list.
-#>
------------------
+#Requires -Version 5.1
 #Requires -RunAsAdministrator
 
-$ErrorActionPreference = "Stop"
+<#
+.SYNOPSIS
+    Reviews likely optional Windows and OEM applications and removes only packages
+    explicitly selected by the administrator.
 
-Add-Type -AssemblyName System.Windows.Forms
-Add-Type -AssemblyName System.Drawing
-[System.Windows.Forms.Application]::EnableVisualStyles()
+.DESCRIPTION
+    This is a conservative first-pass cleanup tool. It inventories current-user
+    AppX packages and Windows provisioned AppX packages. Candidate matching is a
+    suggestion, not a guarantee that an application is unnecessary.
 
-# Suggestions are intentionally limited to optional consumer apps and the OEM
-# vendors already covered by the original OEM-Cleanup script.
-$OptionalAppPatterns = @(
-    '*Microsoft.BingNews*', '*Microsoft.BingWeather*', '*Microsoft.GetHelp*',
-    '*Microsoft.Getstarted*', '*Microsoft.MicrosoftOfficeHub*',
-    '*Microsoft.MicrosoftSolitaireCollection*', '*Microsoft.People*',
-    '*Microsoft.SkypeApp*', '*Microsoft.Todos*', '*Microsoft.WindowsAlarms*',
-    '*Microsoft.WindowsCamera*', '*Microsoft.WindowsFeedbackHub*',
-    '*Microsoft.WindowsMaps*', '*Microsoft.WindowsSoundRecorder*',
-    '*Microsoft.Xbox*', '*Microsoft.GamingApp*', '*Microsoft.ZuneMusic*',
-    '*Microsoft.ZuneVideo*', '*Microsoft.YourPhone*', '*MicrosoftTeams*',
-    '*Clipchamp*', '*PhoneLink*', '*LinkedInforWindows*', '*MicrosoftCorporationII.QuickAssist*'
+    AppX packages can be selected individually or all suggested AppX candidates
+    can be selected for removal after an explicit confirmation. Provisioned
+    package removal affects future user profiles. Win32 applications are listed
+    for review only; this script does not invoke their uninstall commands because
+    vendor uninstallers and silent switches are not reliably interchangeable.
+
+    Nothing is removed on startup. The operator must choose an action and confirm.
+#>
+
+$ErrorActionPreference = 'Stop'
+
+$OptionalMicrosoftPatterns = @(
+    'Microsoft.BingNews',
+    'Microsoft.BingWeather',
+    'Microsoft.GetHelp',
+    'Microsoft.Getstarted',
+    'Microsoft.MicrosoftOfficeHub',
+    'Microsoft.MicrosoftSolitaireCollection',
+    'Microsoft.People',
+    'Microsoft.SkypeApp',
+    'Microsoft.Todos',
+    'Microsoft.WindowsAlarms',
+    'Microsoft.WindowsCamera',
+    'Microsoft.WindowsFeedbackHub',
+    'Microsoft.WindowsMaps',
+    'Microsoft.WindowsSoundRecorder',
+    'Microsoft.Xbox*',
+    'Microsoft.GamingApp',
+    'Microsoft.ZuneMusic',
+    'Microsoft.ZuneVideo',
+    'Microsoft.YourPhone',
+    'MicrosoftTeams',
+    'MSTeams',
+    'Clipchamp.Clipchamp',
+    'MicrosoftCorporationII.QuickAssist',
+    'MicrosoftWindows.CrossDevice'
 )
 
 $OemPatterns = @(
@@ -38,16 +56,23 @@ $OemPatterns = @(
     '*Kaspersky*', '*ESET*'
 )
 
-# Exclude packages whose names suggest hardware support or shared runtimes.
-$SafeExclusions = @(
+$ProtectedPatterns = @(
     '*Driver*', '*Chipset*', '*Audio*', '*Graphics*', '*WLAN*', '*Bluetooth*',
     '*Intel*', '*NVIDIA*', '*AMD*', '*Realtek*', '*Synaptics*', '*Touchpad*',
     '*DisplayLink*', '*SystemInterface*', '*Runtime*', '*Redistributable*',
-    '*Framework*', '*VCLibs*', '*NET.Native*', '*WindowsStore*', '*DesktopAppInstaller*'
+    '*Framework*', '*VCLibs*', '*NET.Native*', '*WindowsStore*',
+    '*DesktopAppInstaller*', '*Windows.ShellExperienceHost*',
+    '*Windows.StartMenuExperienceHost*', '*SecHealthUI*', '*AAD.BrokerPlugin*',
+    '*Windows.CloudExperienceHost*', '*Windows.ContentDeliveryManager*'
 )
 
-function Test-MatchesAny {
-    param([string]$Text, [string[]]$Patterns)
+function Test-AnyPattern {
+    param(
+        [AllowEmptyString()]
+        [string] $Text,
+        [string[]] $Patterns
+    )
+
     if ([string]::IsNullOrWhiteSpace($Text)) { return $false }
     foreach ($pattern in $Patterns) {
         if ($Text -like $pattern) { return $true }
@@ -55,153 +80,218 @@ function Test-MatchesAny {
     return $false
 }
 
-$form = New-Object System.Windows.Forms.Form
-$form.Text = 'Windows Optional App Cleanup'
-$form.StartPosition = 'CenterScreen'
-$form.Size = New-Object System.Drawing.Size(1040, 650)
-$form.MinimumSize = New-Object System.Drawing.Size(820, 480)
-$form.Font = New-Object System.Drawing.Font('Segoe UI', 9)
+function Test-IsAppCandidate {
+    param([string] $Identity)
 
-$intro = New-Object System.Windows.Forms.Label
-$intro.Text = 'Review optional Microsoft and OEM app packages. Nothing is selected by default. Windows components, drivers, and traditional Win32 programs are not removed.'
-$intro.AutoSize = $false
-$intro.Location = New-Object System.Drawing.Point(12, 12)
-$intro.Size = New-Object System.Drawing.Size(990, 42)
-$form.Controls.Add($intro)
+    if ([string]::IsNullOrWhiteSpace($Identity)) { return $false }
+    if (Test-AnyPattern -Text $Identity -Patterns $ProtectedPatterns) { return $false }
 
-$grid = New-Object System.Windows.Forms.DataGridView
-$grid.Location = New-Object System.Drawing.Point(12, 60)
-$grid.Size = New-Object System.Drawing.Size(990, 440)
-$grid.Anchor = 'Top, Bottom, Left, Right'
-$grid.AllowUserToAddRows = $false
-$grid.AllowUserToDeleteRows = $false
-$grid.AllowUserToResizeRows = $false
-$grid.RowHeadersVisible = $false
-$grid.SelectionMode = 'FullRowSelect'
-$grid.MultiSelect = $false
-$grid.AutoSizeColumnsMode = 'Fill'
-$grid.BackgroundColor = [System.Drawing.Color]::White
-$grid.Columns.Add((New-Object System.Windows.Forms.DataGridViewCheckBoxColumn -Property @{ Name = 'Select'; HeaderText = 'Remove'; FillWeight = 12 })) | Out-Null
-$grid.Columns.Add((New-Object System.Windows.Forms.DataGridViewTextBoxColumn -Property @{ Name = 'AppName'; HeaderText = 'App'; ReadOnly = $true; FillWeight = 28 })) | Out-Null
-$grid.Columns.Add((New-Object System.Windows.Forms.DataGridViewTextBoxColumn -Property @{ Name = 'Package'; HeaderText = 'Package identity'; ReadOnly = $true; FillWeight = 42 })) | Out-Null
-$grid.Columns.Add((New-Object System.Windows.Forms.DataGridViewTextBoxColumn -Property @{ Name = 'Scope'; HeaderText = 'Installed for'; ReadOnly = $true; FillWeight = 18 })) | Out-Null
-$form.Controls.Add($grid)
+    return (Test-AnyPattern -Text $Identity -Patterns $OptionalMicrosoftPatterns) -or
+           (Test-AnyPattern -Text $Identity -Patterns $OemPatterns)
+}
 
-$status = New-Object System.Windows.Forms.Label
-$status.Text = 'Loading package inventory…'
-$status.AutoSize = $false
-$status.Location = New-Object System.Drawing.Point(12, 510)
-$status.Size = New-Object System.Drawing.Size(700, 24)
-$status.Anchor = 'Bottom, Left'
-$form.Controls.Add($status)
+function Get-CandidateInventory {
+    $items = New-Object System.Collections.Generic.List[object]
+    $id = 0
 
-$refreshButton = New-Object System.Windows.Forms.Button
-$refreshButton.Text = 'Refresh list'
-$refreshButton.Location = New-Object System.Drawing.Point(720, 535)
-$refreshButton.Size = New-Object System.Drawing.Size(100, 32)
-$refreshButton.Anchor = 'Bottom, Right'
-$form.Controls.Add($refreshButton)
+    Write-Host 'Scanning current-user AppX packages and provisioned packages...' -ForegroundColor Cyan
 
-$removeButton = New-Object System.Windows.Forms.Button
-$removeButton.Text = 'Remove selected'
-$removeButton.Location = New-Object System.Drawing.Point(830, 535)
-$removeButton.Size = New-Object System.Drawing.Size(172, 32)
-$removeButton.Anchor = 'Bottom, Right'
-$form.Controls.Add($removeButton)
-
-$script:Candidates = New-Object System.Collections.Generic.List[object]
-
-function Load-Candidates {
-    $grid.Rows.Clear()
-    $script:Candidates.Clear()
-    $status.Text = 'Scanning installed and provisioned app packages…'
-    $form.Refresh()
-
-    $seen = @{}
     try {
         foreach ($package in (Get-AppxPackage -ErrorAction Stop)) {
             $identity = [string]$package.Name
-            $friendlyName = [string]$package.PackageFullName
-            $isOptional = (Test-MatchesAny -Text $identity -Patterns $OptionalAppPatterns) -or
-                          (Test-MatchesAny -Text $friendlyName -Patterns $OemPatterns) -or
-                          (Test-MatchesAny -Text ([string]$package.PackageFamilyName) -Patterns $OemPatterns)
-            if (-not $isOptional -or (Test-MatchesAny -Text $identity -Patterns $SafeExclusions)) { continue }
-            $key = 'Installed|' + [string]$package.PackageFullName
-            if ($seen.ContainsKey($key)) { continue }
-            $seen[$key] = $true
-            $script:Candidates.Add([pscustomobject]@{ Kind = 'Installed'; Package = $package; Name = $identity; FullName = [string]$package.PackageFullName })
+            if (-not (Test-IsAppCandidate -Identity $identity)) { continue }
+            $id++
+            $items.Add([pscustomobject]@{
+                Id = $id
+                Type = 'AppX - current user'
+                Name = $identity
+                PackageId = [string]$package.PackageFullName
+                Object = $package
+                Removable = $true
+            })
         }
     }
     catch {
-        [void][System.Windows.Forms.MessageBox]::Show("Could not read the current user's installed packages:`n$($_.Exception.Message)", 'Inventory warning', 'OK', 'Warning')
+        Write-Warning "Could not enumerate current-user AppX packages: $($_.Exception.Message)"
     }
 
     try {
         foreach ($package in (Get-AppxProvisionedPackage -Online -ErrorAction Stop)) {
             $identity = [string]$package.DisplayName
             $packageName = [string]$package.PackageName
-            $isOptional = (Test-MatchesAny -Text $identity -Patterns $OptionalAppPatterns) -or
-                          (Test-MatchesAny -Text $packageName -Patterns $OptionalAppPatterns) -or
-                          (Test-MatchesAny -Text $identity -Patterns $OemPatterns) -or
-                          (Test-MatchesAny -Text $packageName -Patterns $OemPatterns)
-            if (-not $isOptional -or (Test-MatchesAny -Text $identity -Patterns $SafeExclusions) -or
-                (Test-MatchesAny -Text $packageName -Patterns $SafeExclusions)) { continue }
-            $key = 'Provisioned|' + $packageName
-            if ($seen.ContainsKey($key)) { continue }
-            $seen[$key] = $true
-            $script:Candidates.Add([pscustomobject]@{ Kind = 'Provisioned'; Package = $package; Name = $identity; FullName = $packageName })
+            if (-not ((Test-IsAppCandidate -Identity $identity) -or
+                      (Test-IsAppCandidate -Identity $packageName))) { continue }
+            $id++
+            $items.Add([pscustomobject]@{
+                Id = $id
+                Type = 'AppX - future profiles'
+                Name = $(if ($identity) { $identity } else { $packageName })
+                PackageId = $packageName
+                Object = $package
+                Removable = $true
+            })
         }
     }
     catch {
-        [void][System.Windows.Forms.MessageBox]::Show("Could not read provisioned packages. Installed-user packages are still listed.`n$($_.Exception.Message)", 'Inventory warning', 'OK', 'Warning')
+        Write-Warning "Could not enumerate provisioned AppX packages: $($_.Exception.Message)"
     }
 
-    foreach ($candidate in $script:Candidates) {
-        $scope = if ($candidate.Kind -eq 'Installed') { 'Current user' } else { 'Future user profiles' }
-        $row = $grid.Rows.Add($false, $candidate.Name, $candidate.FullName, $scope)
-        $grid.Rows[$row].Tag = $candidate
-    }
-    $status.Text = "$($script:Candidates.Count) suggested package(s) found. Review each item; selection is always manual."
+    return ,$items
 }
 
-$refreshButton.Add_Click({ Load-Candidates })
-$removeButton.Add_Click({
-    $grid.EndEdit()
-    $selected = @()
-    foreach ($row in $grid.Rows) {
-        if ([bool]$row.Cells['Select'].Value) { $selected += $row.Tag }
-    }
-    if ($selected.Count -eq 0) {
-        [void][System.Windows.Forms.MessageBox]::Show('Select at least one package to continue.', 'Nothing selected', 'OK', 'Information')
+function Show-Candidates {
+    param([object[]] $Items)
+
+    if (-not $Items -or $Items.Count -eq 0) {
+        Write-Host 'No suggested optional AppX packages were found.' -ForegroundColor Green
         return
     }
 
-    $names = ($selected | ForEach-Object { "• $($_.Name) [$($_.Kind)]" }) -join "`n"
-    $message = "This will remove the selected package(s). Provisioned package removal affects future user profiles.`n`n$names`n`nContinue?"
-    $answer = [System.Windows.Forms.MessageBox]::Show($message, 'Confirm package removal', 'YesNo', 'Warning', 'No')
-    if ($answer -ne [System.Windows.Forms.DialogResult]::Yes) { return }
+    Write-Host "`nSuggested optional AppX packages (review each item):" -ForegroundColor Yellow
+    $Items | Select-Object Id, Type, Name, PackageId | Format-Table -Wrap -AutoSize
+    Write-Host 'Current-user removal affects the current signed-in user only.'
+    Write-Host 'Future-profile removal removes the package from the online Windows image.'
+}
 
-    $failures = New-Object System.Collections.Generic.List[string]
-    $removed = 0
-    foreach ($candidate in $selected) {
-        try {
-            if ($candidate.Kind -eq 'Installed') {
-                Remove-AppxPackage -Package $candidate.Package.PackageFullName -ErrorAction Stop
-            } else {
-                Remove-AppxProvisionedPackage -Online -PackageName $candidate.Package.PackageName -ErrorAction Stop | Out-Null
+function Remove-Candidate {
+    param([Parameter(Mandatory)] [object] $Item)
+
+    if ($Item.Type -eq 'AppX - current user') {
+        Remove-AppxPackage -Package $Item.PackageId -ErrorAction Stop
+    }
+    elseif ($Item.Type -eq 'AppX - future profiles') {
+        Remove-AppxProvisionedPackage -Online -PackageName $Item.PackageId -ErrorAction Stop | Out-Null
+    }
+    else {
+        throw "Unsupported package type: $($Item.Type)"
+    }
+}
+
+function Get-ReviewOnlyWin32Apps {
+    $paths = @(
+        'HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\*',
+        'HKLM:\SOFTWARE\WOW6432Node\Microsoft\Windows\CurrentVersion\Uninstall\*',
+        'HKCU:\SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\*'
+    )
+    $found = @{}
+
+    foreach ($path in $paths) {
+        if (-not (Test-Path -LiteralPath $path)) { continue }
+        foreach ($app in (Get-ItemProperty -Path $path -ErrorAction SilentlyContinue)) {
+            $name = [string]$app.DisplayName
+            if ([string]::IsNullOrWhiteSpace($name)) { continue }
+            if (-not (Test-AnyPattern -Text $name -Patterns $OemPatterns)) { continue }
+            if (Test-AnyPattern -Text $name -Patterns $ProtectedPatterns) { continue }
+            $key = "$name|$($app.Publisher)"
+            if (-not $found.ContainsKey($key)) {
+                $found[$key] = [pscustomobject]@{ Name = $name; Publisher = [string]$app.Publisher }
             }
-            $removed++
         }
-        catch {
-            $failures.Add("$($candidate.Name): $($_.Exception.Message)")
+    }
+    return @($found.Values | Sort-Object Name)
+}
+
+function Show-Win32ReviewList {
+    $apps = @(Get-ReviewOnlyWin32Apps)
+    if ($apps.Count -eq 0) {
+        Write-Host "`nNo likely OEM Win32 applications found in the checked uninstall registry entries."
+        return
+    }
+    Write-Host "`nLikely OEM desktop applications (review-only; not removed by this script):" -ForegroundColor Yellow
+    $apps | Format-Table Name, Publisher -Wrap -AutoSize
+    Write-Host 'Remove these individually through Windows Settings > Apps after reviewing them.'
+}
+
+function Invoke-RemovalSelection {
+    param([object[]] $Items, [switch] $All)
+
+    if (-not $Items -or $Items.Count -eq 0) {
+        Write-Host 'There are no removable AppX candidates.'
+        return
+    }
+
+    $selected = @()
+    if ($All) {
+        $selected = @($Items)
+        Write-Host "`nYou chose ALL $($selected.Count) suggested AppX package entries." -ForegroundColor Yellow
+        Write-Host 'This can remove Microsoft consumer apps and OEM apps that you may rely on.' -ForegroundColor Yellow
+        $confirmation = Read-Host 'Type REMOVE ALL to authorize removal of every listed entry'
+        if ($confirmation -cne 'REMOVE ALL') {
+            Write-Host 'No packages were removed.'
+            return
+        }
+    }
+    else {
+        $rawIds = Read-Host 'Enter the ID(s) to remove, separated by commas (or press Enter to cancel)'
+        if ([string]::IsNullOrWhiteSpace($rawIds)) {
+            Write-Host 'Cancelled. No packages were removed.'
+            return
+        }
+        $requestedIds = @()
+        foreach ($part in ($rawIds -split ',')) {
+            $number = 0
+            if (-not [int]::TryParse($part.Trim(), [ref]$number)) {
+                Write-Warning "Invalid ID '$($part.Trim())'. Nothing was removed."
+                return
+            }
+            $requestedIds += $number
+        }
+        $selected = @($Items | Where-Object { $_.Id -in $requestedIds } | Sort-Object Id -Unique)
+        if ($selected.Count -ne (@($requestedIds | Sort-Object -Unique).Count)) {
+            Write-Warning 'One or more IDs were not in the current list. Nothing was removed.'
+            return
+        }
+        Write-Host "`nSelected packages:" -ForegroundColor Yellow
+        $selected | Select-Object Id, Type, Name, PackageId | Format-Table -Wrap -AutoSize
+        $confirmation = Read-Host 'Type YES to authorize removal of only these listed entries'
+        if ($confirmation -cne 'YES') {
+            Write-Host 'Cancelled. No packages were removed.'
+            return
         }
     }
 
-    $summary = "$removed package(s) removed."
-    if ($failures.Count -gt 0) { $summary += "`n`nCould not remove:`n" + ($failures -join "`n") }
-    [void][System.Windows.Forms.MessageBox]::Show($summary, 'Cleanup results', 'OK', $(if ($failures.Count) { 'Warning' } else { 'Information' }))
-    Load-Candidates
-})
+    foreach ($item in $selected) {
+        try {
+            Write-Host "Removing $($item.Name) ($($item.Type))..."
+            Remove-Candidate -Item $item
+            Write-Host 'Removal command completed.' -ForegroundColor Green
+        }
+        catch {
+            Write-Warning "Removal failed for '$($item.Name)': $($_.Exception.Message)"
+        }
+    }
+}
 
-Load-Candidates
-[void]$form.ShowDialog()
+Write-Host 'Windows Optional App Review and Cleanup' -ForegroundColor Cyan
+Write-Host 'Candidates are suggestions only; this script cannot determine your personal needs.'
+Write-Host 'No package is removed unless you explicitly select an action and confirm it.'
+
+$items = @(Get-CandidateInventory)
+Show-Candidates -Items $items
+Show-Win32ReviewList
+
+while ($true) {
+    Write-Host "`nChoose an action:"
+    Write-Host '  L - List suggested AppX packages again'
+    Write-Host '  S - Select AppX package(s) for removal by ID'
+    Write-Host '  A - Remove all suggested AppX package entries (requires typing REMOVE ALL)'
+    Write-Host '  R - Refresh inventory'
+    Write-Host '  Q - Quit'
+    $choice = (Read-Host 'Choice').Trim().ToUpperInvariant()
+
+    switch ($choice) {
+        'L' { Show-Candidates -Items $items; Show-Win32ReviewList }
+        'S' { Invoke-RemovalSelection -Items $items }
+        'A' { Invoke-RemovalSelection -Items $items -All }
+        'R' {
+            $items = @(Get-CandidateInventory)
+            Show-Candidates -Items $items
+            Show-Win32ReviewList
+        }
+        'Q' { break }
+        default { Write-Host 'Please choose L, S, A, R, or Q.' }
+    }
+    if ($choice -eq 'Q') { break }
+}
+
+Write-Host 'Finished. No additional actions will be taken.'
